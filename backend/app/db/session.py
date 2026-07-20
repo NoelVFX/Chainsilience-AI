@@ -16,13 +16,27 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
+def _normalize_db_url(url: str) -> str:
+    """Normalise managed-Postgres URLs to the psycopg3 driver.
+
+    Render/Railway/Heroku hand out ``postgres://`` (and sometimes
+    ``postgresql://``) DSNs, but SQLAlchemy 2.x needs an explicit driver.
+    """
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
+
+
+DATABASE_URL = _normalize_db_url(settings.database_url)
+
 # SQLite needs check_same_thread=False when used with a threaded server.
-_connect_args = (
-    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-)
+_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(
-    settings.database_url,
+    DATABASE_URL,
     echo=False,
     connect_args=_connect_args,
     pool_pre_ping=True,

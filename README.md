@@ -106,9 +106,17 @@ OPENAI_MODEL=gpt-4o-mini
 
 ---
 
+## ☁️ Deployment
+
+Split deployment — **frontend on Vercel, backend on Render** (Vercel can't run
+the FastAPI + Postgres service). Full step-by-step in
+[`DEPLOYMENT.md`](DEPLOYMENT.md); a Render blueprint ships in
+[`render.yaml`](render.yaml).
+
 ## 📚 Documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — architecture, data model, and the mapping from the original spec to the code.
+- [`DEPLOYMENT.md`](DEPLOYMENT.md) — deploy to Vercel + Render.
 - API reference — interactive OpenAPI docs at **http://localhost:8000/docs**.
 - [`backend/`](backend/) and [`frontend/`](frontend/) each have their own structure documented in `ARCHITECTURE.md`.
 
