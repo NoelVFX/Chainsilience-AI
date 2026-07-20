@@ -149,3 +149,125 @@ a:hover {
   border-color: #22d3ee;
   box-shadow: inset 0 0 24px rgba(34, 211, 238, 0.25);
 }
+
+/* ------------------------------------------------------------------ *
+ * Login card — 3D perspective tilt (rotate3d) on hover.              *
+ * Flattens on focus-within so typing in the form isn't disrupted.    *
+ * ------------------------------------------------------------------ */
+.login-parent {
+  perspective: 1600px;
+}
+.login-card {
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.6s ease;
+  will-change: transform;
+}
+.login-parent:hover .login-card {
+  transform: rotate3d(1, 1, 0, 14deg);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 70px rgba(34, 211, 238, 0.18);
+}
+/* Interacting with the form → snap flat for usability. */
+.login-parent:focus-within .login-card {
+  transform: none;
+}
+/* Inner elements pop toward the viewer on hover for depth. */
+.login-card .depth {
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.login-parent:hover .login-card .depth {
+  transform: translateZ(38px);
+}
+.login-parent:hover .login-card .depth-sm {
+  transform: translateZ(20px);
+}
+.login-parent:focus-within .login-card .depth,
+.login-parent:focus-within .login-card .depth-sm {
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ *
+ * Earth loader — spinning globe loading animation.                   *
+ * ------------------------------------------------------------------ */
+.earth-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9em;
+}
+.earth-loader {
+  --watercolor: #3344c1;
+  --landcolor: #7cc133;
+  width: 7.5em;
+  height: 7.5em;
+  background-color: var(--watercolor);
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow:
+    inset 0em 0.5em rgb(255 255 255 / 0.25),
+    inset 0em -0.5em rgb(0 0 0 / 0.25);
+  border: solid 0.15em white;
+  animation: startround 1s;
+  animation-iteration-count: 1;
+}
+.earth-loader svg path {
+  fill: var(--landcolor);
+}
+.earth-label {
+  color: #8b98b3;
+  font-size: 13px;
+  margin: 0;
+}
+.earth-loader svg:nth-child(1) {
+  position: absolute;
+  bottom: -2em;
+  width: 7em;
+  height: auto;
+  animation: round1 5s infinite linear 0.75s;
+}
+.earth-loader svg:nth-child(2) {
+  position: absolute;
+  top: -3em;
+  width: 7em;
+  height: auto;
+  animation: round1 5s infinite linear;
+}
+.earth-loader svg:nth-child(3) {
+  position: absolute;
+  top: -2.5em;
+  width: 7em;
+  height: auto;
+  animation: round2 5s infinite linear;
+}
+.earth-loader svg:nth-child(4) {
+  position: absolute;
+  bottom: -2.2em;
+  width: 7em;
+  height: auto;
+  animation: round2 5s infinite linear 0.75s;
+}
+@keyframes startround {
+  0% { filter: brightness(500%); box-shadow: none; }
+  75% { filter: brightness(500%); box-shadow: none; }
+  100% {
+    filter: brightness(100%);
+    box-shadow: inset 0em 0.5em rgb(255 255 255 / 0.25), inset 0em -0.5em rgb(0 0 0 / 0.25);
+  }
+}
+@keyframes round1 {
+  0% { left: -2em; opacity: 1; transform: skewX(0deg) rotate(0deg); }
+  30% { left: -6em; opacity: 1; transform: skewX(-25deg) rotate(25deg); }
+  31% { left: -6em; opacity: 0; transform: skewX(-25deg) rotate(25deg); }
+  35% { left: 7em; opacity: 0; transform: skewX(25deg) rotate(-25deg); }
+  45% { left: 7em; opacity: 1; transform: skewX(25deg) rotate(-25deg); }
+  100% { left: -2em; opacity: 1; transform: skewX(0deg) rotate(0deg); }
+}
+@keyframes round2 {
+  0% { left: 5em; opacity: 1; transform: skewX(0deg) rotate(0deg); }
+  75% { left: -7em; opacity: 1; transform: skewX(-25deg) rotate(25deg); }
+  76% { left: -7em; opacity: 0; transform: skewX(-25deg) rotate(25deg); }
+  77% { left: 8em; opacity: 0; transform: skewX(25deg) rotate(-25deg); }
+  80% { left: 8em; opacity: 1; transform: skewX(25deg) rotate(-25deg); }
+  100% { left: 5em; opacity: 1; transform: skewX(0deg) rotate(0deg); }
+}

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { AppShell } from "@/components/AppShell";
 import { DisruptionMap } from "@/components/DisruptionMap";
+import { EarthLoader } from "@/components/EarthLoader";
 import { useDashboard, useIngestNews } from "@/lib/hooks";
 
 /** Screen 3 — Dashboard: KPI row, Top Risks, disruption map, news, actions. */
@@ -142,15 +143,20 @@ export default function DashboardPage() {
 
 function SkeletonDashboard() {
   return (
-    <div className="animate-pulse">
-      <div className="mb-[22px] grid grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-[104px] rounded-card border border-line bg-surface" />
-        ))}
+    <div>
+      <div className="mb-8 flex justify-center pt-10">
+        <EarthLoader px={96} label="Loading supply-chain intelligence…" />
       </div>
-      <div className="grid grid-cols-[2.3fr_1fr] gap-4">
-        <div className="h-[300px] rounded-card border border-line bg-surface" />
-        <div className="h-[300px] rounded-card border border-line bg-surface" />
+      <div className="animate-pulse">
+        <div className="mb-[22px] grid grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-[104px] rounded-card border border-line bg-surface" />
+          ))}
+        </div>
+        <div className="grid grid-cols-[2.3fr_1fr] gap-4">
+          <div className="h-[300px] rounded-card border border-line bg-surface" />
+          <div className="h-[300px] rounded-card border border-line bg-surface" />
+        </div>
       </div>
     </div>
   );

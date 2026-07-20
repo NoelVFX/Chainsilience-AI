@@ -19,7 +19,7 @@ export default function GlobeCanvas({ points, backdrop = false, reducedMotion = 
     <Canvas
       // Cap devicePixelRatio for performance on high-density / mobile screens.
       dpr={[1, backdrop ? 1.3 : 1.8]}
-      camera={{ position: [0, 0.2, 3.4], fov: 42 }}
+      camera={{ position: [0, 0.15, 3.95], fov: 42 }}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       // offsetSize measures synchronously — avoids the initial 300x150 canvas
       // when mounted via dynamic import before the ResizeObserver fires.

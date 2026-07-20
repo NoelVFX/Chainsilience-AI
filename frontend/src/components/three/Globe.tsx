@@ -86,29 +86,41 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
   });
 
   return (
-    <group ref={groupRef} scale={backdrop ? 1.35 : 1}>
-      {/* core */}
-      <mesh>
-        <sphereGeometry args={[R, 48, 48]} />
-        <meshStandardMaterial
-          color="#0b1a2e"
-          emissive="#06131f"
-          emissiveIntensity={0.6}
-          roughness={0.9}
-          metalness={0.1}
-        />
-      </mesh>
+    // Backdrop fits fully in-frame (scale 1) and is a translucent wireframe with
+    // no solid core, so it blends with the page background instead of reading as
+    // a clipped dark disc. The dashboard globe keeps a solid, lit earth.
+    <group ref={groupRef} scale={1}>
+      {/* solid, lit core — only for the foreground (dashboard) globe */}
+      {!backdrop && (
+        <mesh>
+          <sphereGeometry args={[R, 48, 48]} />
+          <meshStandardMaterial
+            color="#0b1a2e"
+            emissive="#06131f"
+            emissiveIntensity={0.6}
+            roughness={0.9}
+            metalness={0.1}
+          />
+        </mesh>
+      )}
+      {/* faint occluder for the backdrop so back-side lines don't show through */}
+      {backdrop && (
+        <mesh>
+          <sphereGeometry args={[R * 0.99, 32, 32]} />
+          <meshBasicMaterial color="#0a1420" transparent opacity={0.35} />
+        </mesh>
+      )}
       {/* wireframe shell */}
       <mesh scale={1.003}>
         <icosahedronGeometry args={[R, 6]} />
-        <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={backdrop ? 0.06 : 0.12} />
+        <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={backdrop ? 0.22 : 0.12} />
       </mesh>
       {/* latitude/longitude rings for a techy graticule */}
-      <Graticule />
+      <Graticule backdrop={backdrop} />
       {/* atmosphere rim glow */}
       <mesh scale={1.16}>
         <sphereGeometry args={[R, 32, 32]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.05} side={THREE.BackSide} />
+        <meshBasicMaterial color="#22d3ee" transparent opacity={backdrop ? 0.08 : 0.05} side={THREE.BackSide} />
       </mesh>
       {!backdrop && points.map((p, i) => <Marker key={`${p.country}-${i}`} point={p} />)}
     </group>
@@ -116,7 +128,7 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
 }
 
 /** Thin latitude & longitude rings (drei <Line> avoids the SVG `line` clash). */
-function Graticule() {
+function Graticule({ backdrop = false }: { backdrop?: boolean }) {
   const rings = useMemo(() => {
     const out: THREE.Vector3[][] = [];
     for (let lat = -60; lat <= 60; lat += 30) {
@@ -135,7 +147,14 @@ function Graticule() {
   return (
     <group>
       {rings.map((pts, i) => (
-        <Line key={i} points={pts} color="#3b82f6" transparent opacity={0.14} lineWidth={1} />
+        <Line
+          key={i}
+          points={pts}
+          color={backdrop ? "#22d3ee" : "#3b82f6"}
+          transparent
+          opacity={backdrop ? 0.25 : 0.14}
+          lineWidth={1}
+        />
       ))}
     </group>
   );

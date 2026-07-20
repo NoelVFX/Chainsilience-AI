@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AmbientOrbs } from "@/components/AmbientOrbs";
+import { EarthLoader } from "@/components/EarthLoader";
 import { Logo } from "@/components/Logo";
 import { GlobeMount } from "@/components/three/GlobeMount";
 import { useLogin } from "@/lib/hooks";
@@ -31,19 +32,22 @@ export default function LoginPage() {
       {/* Decorative rotating 3D globe behind the card. */}
       <div
         className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        style={{ opacity: 0.55 }}
+        style={{ opacity: 0.8 }}
         aria-hidden
       >
-        <div style={{ width: "min(680px, 92vw)", height: "min(680px, 92vw)" }}>
+        <div style={{ width: "min(620px, 88vw)", height: "min(620px, 88vw)" }}>
           <GlobeMount points={[]} backdrop />
         </div>
       </div>
 
+      <div className="login-parent relative z-10 w-[400px] max-w-full">
       <div
-        className="relative z-10 w-[400px] max-w-full rounded-panel border border-line bg-surface p-10"
+        className="login-card rounded-panel border border-line bg-surface p-10"
         style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(34,211,238,0.08)" }}
       >
-        <Logo />
+        <div className="depth">
+          <Logo />
+        </div>
         <div className="mb-7 mt-1.5 text-[13px] text-muted">
           Transforming global supply chain signals into actionable business decisions.
         </div>
@@ -85,9 +89,9 @@ export default function LoginPage() {
           <button
             onClick={handleSignIn}
             disabled={login.isPending}
-            className="btn-primary mt-2 py-3"
+            className="btn-primary depth-sm mt-2 flex min-h-[46px] items-center justify-center py-3"
           >
-            {login.isPending ? "Signing in…" : "Sign In"}
+            {login.isPending ? <EarthLoader px={26} /> : "Sign In"}
           </button>
 
           <div className="mt-1 text-center text-[13px] text-muted">
@@ -103,6 +107,7 @@ export default function LoginPage() {
             Demo: demo@chainsight.ai · demo1234
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
