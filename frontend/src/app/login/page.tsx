@@ -1,0 +1,109 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { AmbientOrbs } from "@/components/AmbientOrbs";
+import { Logo } from "@/components/Logo";
+import { GlobeMount } from "@/components/three/GlobeMount";
+import { useLogin } from "@/lib/hooks";
+
+/** Screen 1 — Login. Centered card on the animated orb background. */
+export default function LoginPage() {
+  const router = useRouter();
+  const login = useLogin();
+  const [email, setEmail] = useState("demo@chainsight.ai");
+  const [password, setPassword] = useState("demo1234");
+
+  async function handleSignIn() {
+    try {
+      await login.mutateAsync({ email, password });
+      router.push("/dashboard");
+    } catch {
+      /* error surfaced below */
+    }
+  }
+
+  return (
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+      <AmbientOrbs variant="auth" />
+
+      {/* Decorative rotating 3D globe behind the card. */}
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        style={{ opacity: 0.55 }}
+        aria-hidden
+      >
+        <div style={{ width: "min(680px, 92vw)", height: "min(680px, 92vw)" }}>
+          <GlobeMount points={[]} backdrop />
+        </div>
+      </div>
+
+      <div
+        className="relative z-10 w-[400px] max-w-full rounded-panel border border-line bg-surface p-10"
+        style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(34,211,238,0.08)" }}
+      >
+        <Logo />
+        <div className="mb-7 mt-1.5 text-[13px] text-muted">
+          Transforming global supply chain signals into actionable business decisions.
+        </div>
+
+        <div className="flex flex-col gap-3.5">
+          <div>
+            <div className="mb-1.5 text-xs font-semibold text-muted">Email</div>
+            <input
+              type="email"
+              className="panel-input"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-semibold text-muted">Password</div>
+            <input
+              type="password"
+              className="panel-input"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
+            />
+          </div>
+          <div className="-mt-1.5 flex justify-end">
+            <span className="cursor-pointer text-xs text-muted hover:text-text">
+              Forgot password?
+            </span>
+          </div>
+
+          {login.isError && (
+            <div className="text-xs text-danger">
+              Invalid email or password. Try the demo credentials below.
+            </div>
+          )}
+
+          <button
+            onClick={handleSignIn}
+            disabled={login.isPending}
+            className="btn-primary mt-2 py-3"
+          >
+            {login.isPending ? "Signing in…" : "Sign In"}
+          </button>
+
+          <div className="mt-1 text-center text-[13px] text-muted">
+            New company?{" "}
+            <span
+              onClick={() => router.push("/onboarding")}
+              className="cursor-pointer font-semibold text-cyan"
+            >
+              Start onboarding
+            </span>
+          </div>
+          <div className="mt-1 text-center text-[11px] text-muted/70">
+            Demo: demo@chainsight.ai · demo1234
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

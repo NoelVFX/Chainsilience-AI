@@ -1,0 +1,51 @@
+# ChainSight AI — full local stack: Postgres, Redis, FastAPI backend, Next.js UI.
+# Usage:  docker compose up --build
+# Then open http://localhost:3000  (demo@chainsight.ai / demo1234)
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: chainsight
+      POSTGRES_PASSWORD: chainsight
+      POSTGRES_DB: chainsight
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chainsight"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://chainsight:chainsight@db:5432/chainsight
+      SECRET_KEY: change-me-in-production
+      SEED_ON_STARTUP: "true"
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      # OPENAI_API_KEY: ${OPENAI_API_KEY:-}   # optional: enable live LLM calls
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:

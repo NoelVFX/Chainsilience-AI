@@ -1,0 +1,8 @@
+key,type,name,country
+sup_globalchip,supplier,GlobalChip Foundry,South Korea
+sup_pacificsensors,supplier,Pacific Sensors Ltd,Vietnam
+cmp_capacitor,component,Ceramic Capacitor,Japan
+prd_gateway_g9,product,Gateway G9 Module,USA
+fac_guadalajara,factory,Guadalajara Assembly,Mexico
+cus_retail,customer,Retail Channel,Global
+prt_longbeach,port,Long Beach Port,USA

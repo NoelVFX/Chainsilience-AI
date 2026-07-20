@@ -1,0 +1,124 @@
+"use client";
+
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { AppShell } from "@/components/AppShell";
+import { EmailModal } from "@/components/EmailModal";
+import { useRiskDetail } from "@/lib/hooks";
+
+/** Screen 4 — Risk Detail: breakdown, reasoning, event chain, impact. */
+export default function RiskDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const riskId = Number(params.id);
+  const { data, isLoading } = useRiskDetail(riskId);
+  const [emailOpen, setEmailOpen] = useState(false);
+
+  return (
+    <AppShell>
+      <button
+        onClick={() => router.push("/dashboard")}
+        className="mb-4 text-[13px] text-muted hover:text-text"
+      >
+        ← Back to Dashboard
+      </button>
+
+      {isLoading || !data ? (
+        <div className="h-64 animate-pulse rounded-card border border-line bg-surface" />
+      ) : (
+        <>
+          <div className="mb-1 flex items-center gap-3">
+            <span
+              className="rounded-md px-2.5 py-1 text-[11.5px] font-bold"
+              style={{ background: `${data.severity_color}1f`, color: data.severity_color }}
+            >
+              {data.severity}
+            </span>
+            <span className="text-[12.5px] text-muted">
+              Risk Score {data.score} · {data.time}
+            </span>
+          </div>
+          <h1 className="mb-6 mt-2 text-[22px] font-extrabold text-text">{data.headline}</h1>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* Left column */}
+            <div className="flex flex-col gap-4">
+              <div className="card">
+                <div className="mb-3.5 text-[15px] font-bold text-text">Risk Score Breakdown</div>
+                {data.factors.map((f) => (
+                  <div key={f.label} className="mb-3">
+                    <div className="mb-[7px] flex justify-between gap-2.5 text-[12.5px] text-muted">
+                      <span>{f.label}</span>
+                      <span className="font-semibold text-text">{f.value}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-[3px] bg-inset">
+                      <div
+                        className="h-full rounded-[3px]"
+                        style={{
+                          width: `${f.value}%`,
+                          background: "linear-gradient(90deg,#22d3ee,#3b82f6)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="card">
+                <div className="mb-2.5 text-[15px] font-bold text-text">AI Reasoning</div>
+                <p className="text-[13px] leading-[1.7] text-muted">{data.reasoning}</p>
+              </div>
+            </div>
+
+            {/* Right column */}
+            <div className="flex flex-col gap-4">
+              <div className="card">
+                <div className="mb-3.5 text-[15px] font-bold text-text">Event Chain</div>
+                <div className="flex flex-col">
+                  {data.chain.map((node, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#3b82f6" }} />
+                        {i < data.chain.length - 1 && (
+                          <span style={{ width: 1.5, flex: 1, minHeight: 22, background: "rgba(148,163,184,0.2)" }} />
+                        )}
+                      </div>
+                      <div className="pb-3.5 text-[12.5px] text-text">{node}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="mb-3.5 text-[15px] font-bold text-text">Predicted Impact</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {data.impact.map((t) => (
+                    <div key={t.label} className="rounded-control bg-inset p-3">
+                      <div className="text-[11px] font-semibold text-muted">{t.label}</div>
+                      <div className="mt-1 text-base font-extrabold text-text">{t.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex gap-3">
+            <button
+              onClick={() => router.push(`/simulator?risk=${riskId}`)}
+              className="btn-primary px-5 py-3"
+            >
+              Run Scenario Simulator
+            </button>
+            <button onClick={() => setEmailOpen(true)} className="btn-ghost px-5 py-3">
+              Generate Mitigation Email
+            </button>
+          </div>
+
+          {emailOpen && <EmailModal riskId={riskId} onClose={() => setEmailOpen(false)} />}
+        </>
+      )}
+    </AppShell>
+  );
+}

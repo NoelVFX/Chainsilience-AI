@@ -1,0 +1,10 @@
+# Aggregated ignores (see backend/.gitignore, frontend/.gitignore for details)
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.db
+**/.env
+**/.env.local
+**/node_modules/
+**/.next/
+.DS_Store
