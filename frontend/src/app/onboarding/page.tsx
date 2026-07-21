@@ -6,7 +6,7 @@ import { useState } from "react";
 import { AmbientOrbs } from "@/components/AmbientOrbs";
 import { GlobeMount } from "@/components/three/GlobeMount";
 import { getToken } from "@/lib/api";
-import { useOnboarding, useRegister } from "@/lib/hooks";
+import { useOnboarding, useRegister, useUploadTwinCsv } from "@/lib/hooks";
 
 /**
  * Screen 2 — Company Onboarding. Collects the company profile that seeds the
@@ -17,7 +17,8 @@ export default function OnboardingPage() {
   const router = useRouter();
   const register = useRegister();
   const onboarding = useOnboarding();
-  const [fileName, setFileName] = useState<string | null>(null);
+  const uploadCsv = useUploadTwinCsv();
+  const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [form, setForm] = useState({
@@ -46,6 +47,14 @@ export default function OnboardingPage() {
         });
       }
       await onboarding.mutateAsync(form);
+      // Optional: enrich the bootstrapped twin with the uploaded supply-chain CSV.
+      if (file) {
+        try {
+          await uploadCsv.mutateAsync(file);
+        } catch {
+          /* non-fatal: the profile-bootstrapped twin still works */
+        }
+      }
       router.push("/dashboard");
     } finally {
       setBusy(false);
@@ -142,16 +151,16 @@ export default function OnboardingPage() {
         </div>
         <label className="dropzone block cursor-pointer rounded-panel border-[1.5px] border-dashed border-line-strong bg-inset p-[22px] text-center">
           <div className="text-[13px] font-semibold text-text">
-            {fileName ? `Selected: ${fileName}` : "Drop CSV / Excel file here"}
+            {file ? `Selected: ${file.name}` : "Drop CSV file here (optional)"}
           </div>
           <div className="mt-1 font-mono text-xs text-muted">
-            suppliers.csv · factories.csv · inventory.csv
+            columns: key,type,name,country,dependency_share,coverage_days,…
           </div>
           <input
             type="file"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv"
             className="hidden"
-            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
         </label>
 

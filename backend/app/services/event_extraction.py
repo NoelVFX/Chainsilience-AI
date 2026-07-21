@@ -6,6 +6,8 @@ always works offline.
 """
 from __future__ import annotations
 
+import re
+
 from app.models.entities import Event, NewsItem, Severity
 from app.services.ai.adapter import ai_client
 
@@ -26,22 +28,36 @@ _KEYWORDS: list[tuple[tuple[str, ...], str, Severity]] = [
 
 _COUNTRIES = [
     "Taiwan", "China", "Japan", "USA", "United States", "Vietnam", "Malaysia",
-    "Netherlands", "Germany", "Egypt", "Philippines", "Korea", "India",
+    "Netherlands", "Germany", "Egypt", "Philippines", "Korea", "South Korea",
+    "India", "Poland", "France", "Italy", "Spain", "Mexico", "Brazil", "Canada",
+    "United Kingdom", "UK", "Indonesia", "Thailand", "Turkey", "Singapore",
+    "Australia", "Bangladesh", "Ukraine", "Russia", "Saudi Arabia", "UAE",
 ]
+
+
+def _matches(word: str, lowered: str) -> bool:
+    """Whole-word match allowing common inflections (plural/verb endings).
+
+    Uses a leading word boundary + optional suffix so 'tariff' also matches
+    'tariffs' and 'delay' matches 'delays'/'delayed', while 'war' still does NOT
+    match 'warn'/'warning'/'toward'.
+    """
+    return re.search(r"\b" + re.escape(word) + r"(?:s|es|d|ed|ing)?\b", lowered) is not None
 
 
 def _classify(text: str) -> tuple[str, Severity]:
     lowered = text.lower()
     for needles, etype, sev in _KEYWORDS:
-        if any(n in lowered for n in needles):
+        if any(_matches(n, lowered) for n in needles):
             return etype, sev
     return "disruption", Severity.MEDIUM
 
 
 def _detect_country(text: str) -> str:
+    lowered = text.lower()
     for c in _COUNTRIES:
-        if c.lower() in text.lower():
-            return "USA" if c == "United States" else c
+        if _matches(c.lower(), lowered):
+            return "USA" if c in ("United States",) else "UK" if c == "United Kingdom" else c
     return ""
 
 

@@ -43,10 +43,37 @@ class Settings(BaseSettings):
     ]
 
     # --- AI -------------------------------------------------------------------
-    # When unset, the AI layer uses a deterministic, offline fallback so the
-    # full workflow demos without any external API keys or network access.
+    # Provider auto-selection at runtime: NVIDIA (Nemotron) > OpenAI > offline
+    # deterministic fallback. When no key is set, every AI module still works via
+    # rule-based fallbacks so the platform runs with zero external dependencies.
+    #
+    # NVIDIA Nemotron is called through its OpenAI-compatible endpoint. Set
+    # NVIDIA_API_KEY (and optionally NVIDIA_MODEL) to activate the live agents.
+    nvidia_api_key: str | None = None
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    # Exact model id from build.nvidia.com (the Llama-Nemotron "Ultra" tier).
+    nvidia_model: str = "nvidia/llama-3.1-nemotron-ultra-253b-v1"
+
+    # OpenAI (fallback provider if NVIDIA not configured).
     openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
+
+    # --- News scraping --------------------------------------------------------
+    # Curated public RSS feeds for supply-chain / trade / logistics / disaster
+    # signals. Fetched live on demand; falls back to an offline sample when the
+    # network is unavailable.
+    news_rss_feeds: list[str] = [
+        "https://feeds.reuters.com/reuters/businessNews",
+        "https://www.ft.com/rss/home",
+        "https://gcaptain.com/feed/",
+        "https://www.freightwaves.com/feed",
+        "https://splash247.com/feed/",
+        "https://www.supplychaindive.com/feeds/news/",
+        "https://feeds.bbci.co.uk/news/business/rss.xml",
+    ]
+    news_fetch_per_feed: int = 6
+    news_http_timeout: float = 8.0
 
 
 @lru_cache

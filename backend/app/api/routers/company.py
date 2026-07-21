@@ -13,6 +13,7 @@ from app.models.entities import Company, Node, NodeType, User
 from app.repositories import CompanyRepository, TwinRepository, UserRepository
 from app.schemas.domain import CompanyResponse, OnboardingRequest
 from app.services.digital_twin import DigitalTwinService
+from app.services.twin_builder import TwinBuilder
 
 router = APIRouter(prefix="/company", tags=["company"])
 
@@ -23,7 +24,12 @@ def onboarding(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> CompanyResponse:
-    """Create/attach the caller's company and start their Digital Twin."""
+    """Create/attach the caller's company and build a working Digital Twin.
+
+    A brand-new company is bootstrapped into a coherent, connected twin from its
+    profile and seeded with a couple of starter risks (via the real pipeline) so
+    the dashboard is immediately populated rather than empty.
+    """
     companies = CompanyRepository(session)
     if user.company_id:
         company = companies.get(user.company_id)
@@ -41,6 +47,11 @@ def onboarding(
     if not user.company_id:
         user.company_id = company.id
         UserRepository(session).add(user)
+
+    # Build a starter twin + risks if this company has no twin yet.
+    builder = TwinBuilder(session)
+    if builder.bootstrap_from_profile(company):
+        builder.seed_starter_risks(company)
 
     return CompanyResponse.model_validate(company)
 
@@ -71,6 +82,11 @@ async def upload_twin_csv(
     reader = csv.DictReader(io.StringIO(raw))
     twin = TwinRepository(session)
     created, skipped = 0, 0
+    # Optional numeric attribute columns understood by the risk engine.
+    numeric_attrs = (
+        "dependency_share", "lead_time_days", "reliability", "risk", "alt_suppliers",
+        "inventory", "safety_stock", "coverage_days", "monthly_revenue", "margin",
+    )
     for row in reader:
         row = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
         try:
@@ -82,19 +98,30 @@ async def upload_twin_csv(
         if not key or twin.node_by_key(company_id, key):
             skipped += 1
             continue
+
+        attributes: dict = {}
+        for col in numeric_attrs:
+            if row.get(col):
+                try:
+                    attributes[col] = float(row[col]) if "." in row[col] else int(row[col])
+                except ValueError:
+                    pass
         twin.add_node(
             Node(company_id=company_id, key=key, type=node_type,
                  name=row.get("name", key), country=row.get("country", ""),
-                 attributes={})
+                 attributes=attributes)
         )
         created += 1
+
+    # Auto-wire edges by node-type convention so the uploaded twin is connected.
+    edges_made = TwinBuilder(session).autowire_edges(company_id)
 
     # Uploading real data lifts the data-quality score.
     company = CompanyRepository(session).get(company_id)
     company.data_quality_score = min(99, max(company.data_quality_score, 80) + created)
     CompanyRepository(session).update(company)
 
-    return {"created": created, "skipped": skipped,
+    return {"created": created, "skipped": skipped, "edges_created": edges_made,
             "data_quality_score": company.data_quality_score}
 
 

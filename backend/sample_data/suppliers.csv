@@ -1,8 +1,10 @@
-key,type,name,country
-sup_globalchip,supplier,GlobalChip Foundry,South Korea
-sup_pacificsensors,supplier,Pacific Sensors Ltd,Vietnam
-cmp_capacitor,component,Ceramic Capacitor,Japan
-prd_gateway_g9,product,Gateway G9 Module,USA
-fac_guadalajara,factory,Guadalajara Assembly,Mexico
-cus_retail,customer,Retail Channel,Global
-prt_longbeach,port,Long Beach Port,USA
+key,type,name,country,dependency_share,alt_suppliers,lead_time_days,coverage_days,monthly_revenue
+sup_globalchip,supplier,GlobalChip Foundry,South Korea,0.72,0,50,,
+sup_pacificsensors,supplier,Pacific Sensors Ltd,Vietnam,0.4,2,30,,
+cmp_capacitor,component,Ceramic Capacitor,Japan,,,,12,
+cmp_display,component,OLED Display Panel,South Korea,,,,9,
+prd_gateway_g9,product,Gateway G9 Module,USA,,,,,1800000
+prd_tablet_t5,product,Tablet T5,USA,,,,,1200000
+fac_guadalajara,factory,Guadalajara Assembly,Mexico,,,,,
+cus_retail,customer,Retail Channel,Global,,,,,
+prt_longbeach,port,Long Beach Port,USA,,,,,

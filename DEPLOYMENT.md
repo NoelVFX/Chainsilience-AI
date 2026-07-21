@@ -80,7 +80,13 @@ Then open the Vercel URL and sign in with **demo@chainsight.ai / demo1234**.
 - **Managed DB URLs**: Render/Railway hand out `postgres://…`; the backend
   rewrites this to the `postgresql+psycopg://` driver automatically
   (`backend/app/db/session.py`).
-- **Live LLM**: set `OPENAI_API_KEY` on the backend to switch the six AI modules
-  from deterministic fallbacks to real calls. Everything works without it.
+- **Live AI agents (NVIDIA Nemotron)**: set `NVIDIA_API_KEY` (and `NVIDIA_MODEL`,
+  the exact id from build.nvidia.com) on the backend to switch every AI module —
+  the news **gatekeeper**, event extraction, risk reasoning, recommendations, and
+  email drafting — from deterministic fallbacks to real Nemotron calls. Confirm
+  via `GET /health` → `"ai_provider": "nvidia"`. Everything works without a key.
+- **Live news scraping**: the backend scrapes real supply-chain RSS feeds on each
+  Ingest; override the feed list with `NEWS_RSS_FEEDS`. Falls back to an offline
+  sample if the network is unavailable.
 - **Preview builds**: every GitHub push triggers a Vercel preview deploy; wire a
   preview backend URL if you want previews to hit a non-prod API.

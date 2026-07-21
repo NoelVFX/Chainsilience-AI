@@ -28,6 +28,7 @@ from app.repositories import (
     RiskRepository,
     TwinRepository,
 )
+from app.services.agents.gatekeeper import GatekeeperAgent
 from app.services.digital_twin import DigitalTwinService
 from app.services.event_extraction import EventExtractionService
 from app.services.impact import ImpactService
@@ -42,10 +43,12 @@ logger = get_logger(__name__)
 @dataclass
 class PipelineResult:
     news: NewsItem
-    event: Event
+    event: Event | None
     risk: Risk | None
     actions: list[Action]
     matched: bool
+    filtered: bool = False  # dropped by the gatekeeper agent
+    reason: str = ""
 
 
 class IntelligencePipeline:
@@ -55,6 +58,7 @@ class IntelligencePipeline:
         self.risk_repo = RiskRepository(session)
         self.action_repo = ActionRepository(session)
         self.twin_service = DigitalTwinService(TwinRepository(session))
+        self.gatekeeper = GatekeeperAgent()
         self.extractor = EventExtractionService()
         self.matcher = MatchingService()
         self.scorer = RiskScoringService()
@@ -63,6 +67,14 @@ class IntelligencePipeline:
 
     def process(self, company_id: int, news: NewsItem) -> PipelineResult:
         """Run the full pipeline for one (already-persisted) news item."""
+        # Agent layer: drop fake / irrelevant / off-topic news before it costs
+        # any downstream reasoning.
+        verdict = self.gatekeeper.review(news)
+        if not verdict.accepted:
+            logger.info("Gatekeeper dropped news %s (%s).", news.id, verdict.reason)
+            return PipelineResult(news, None, None, [], matched=False,
+                                  filtered=True, reason=verdict.reason)
+
         event = self.extractor.extract(news)
         event = self.event_repo.add(event)
 

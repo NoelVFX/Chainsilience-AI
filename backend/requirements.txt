@@ -10,6 +10,7 @@ PyJWT==2.10.1
 passlib==1.7.4
 python-dateutil==2.9.0.post0
 httpx==0.28.1
+feedparser==6.0.11
 # Postgres driver (used when DATABASE_URL points at postgres; SQLite works out of the box)
 psycopg[binary]==3.2.3
 # Optional: real LLM calls. The app runs fully without it (deterministic fallback).

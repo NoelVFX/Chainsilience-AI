@@ -18,8 +18,10 @@ router = APIRouter(prefix="/news", tags=["news"])
 
 class IngestResult(BaseModel):
     ingested: int
+    filtered: int
     matched: int
     new_risks: list[int]
+    provider: str
     message: str
 
 
@@ -45,25 +47,31 @@ def ingest(
     Demonstrates the live end-to-end flow: news → event → match → risk →
     recommended actions. New matched risks appear on the dashboard immediately.
     """
+    from app.services.ai.adapter import ai_client
+
     news_repo = NewsRepository(session)
     pipeline = IntelligencePipeline(session)
 
     collected = NewsEngine().collect()
     new_risks: list[int] = []
     matched = 0
+    filtered = 0
     for item in collected:
         item = news_repo.add(item)
         result = pipeline.process(company_id, item)
+        if result.filtered:
+            filtered += 1
         if result.matched and result.risk:
             matched += 1
             new_risks.append(result.risk.id)
 
+    kept = len(collected) - filtered
     msg = (
-        f"Ingested {len(collected)} item(s); {matched} matched your Digital Twin "
-        f"and generated new risks."
-        if matched
-        else f"Ingested {len(collected)} item(s); none matched your supply chain."
+        f"Scraped {len(collected)} headline(s); the AI gatekeeper filtered out "
+        f"{filtered} as fake/irrelevant. Of {kept} credible items, {matched} "
+        f"matched your Digital Twin and generated new risks."
     )
     return IngestResult(
-        ingested=len(collected), matched=matched, new_risks=new_risks, message=msg
+        ingested=len(collected), filtered=filtered, matched=matched,
+        new_risks=new_risks, provider=ai_client.provider, message=msg,
     )

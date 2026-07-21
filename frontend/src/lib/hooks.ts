@@ -46,6 +46,19 @@ export function useOnboarding() {
   });
 }
 
+export function useUploadTwinCsv() {
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return api.upload<{ created: number; edges_created: number; data_quality_score: number }>(
+        "/company/twin/upload",
+        form,
+      );
+    },
+  });
+}
+
 export function useDashboard() {
   return useQuery({
     queryKey: ["dashboard"],

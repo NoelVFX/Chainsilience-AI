@@ -62,10 +62,16 @@ app.add_middleware(
 
 @app.get("/health", tags=["meta"])
 def health() -> dict:
-    """Liveness probe + whether the live LLM path is active."""
+    """Liveness probe + which AI provider/model is active."""
     from app.services.ai.adapter import ai_client
 
-    return {"status": "ok", "app": settings.app_name, "ai_live": ai_client.live}
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "ai_live": ai_client.live,
+        "ai_provider": ai_client.provider,
+        "ai_model": ai_client.model or None,
+    }
 
 
 # --- Versioned API ----------------------------------------------------------
