@@ -114,6 +114,13 @@ export function useGenerateEmail(riskId: number) {
   });
 }
 
+export function useSaveEmailDraft(riskId: number) {
+  return useMutation({
+    mutationFn: (draft: { kind: string; subject: string; body: string }) =>
+      api.put<EmailResponse>(`/risks/${riskId}/email`, draft),
+  });
+}
+
 export function useIngestNews() {
   const qc = useQueryClient();
   return useMutation({

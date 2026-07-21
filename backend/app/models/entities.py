@@ -210,6 +210,20 @@ class Action(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
 
 
+class EmailDraft(SQLModel, table=True):
+    """A saved, user-editable mitigation email draft (per risk + kind)."""
+
+    __tablename__ = "email_drafts"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    company_id: int = Field(foreign_key="companies.id", index=True)
+    risk_id: int = Field(foreign_key="risks.id", index=True)
+    kind: str = "customer"  # customer | supplier | executive | procurement
+    subject: str = ""
+    body: str = ""
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+
 class Feedback(SQLModel, table=True):
     """User rating of a recommendation, feeding the improvement loop."""
 

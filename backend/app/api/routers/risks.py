@@ -9,10 +9,11 @@ from app.core.constants import severity_color, severity_label
 from app.core.timeutil import relative_time
 from app.db.session import get_session
 from app.models.entities import Risk
-from app.repositories import RiskRepository
+from app.repositories import EmailDraftRepository, RiskRepository
 from app.schemas.domain import (
     EmailRequest,
     EmailResponse,
+    EmailSaveRequest,
     Factor,
     ImpactTile,
     RiskCard,
@@ -67,12 +68,32 @@ def risk_detail(
 
 
 @router.post("/{risk_id}/email", response_model=EmailResponse)
-def generate_email(
+def get_or_generate_email(
     risk_id: int,
     payload: EmailRequest,
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
 ) -> EmailResponse:
+    """Return the saved draft for (risk, kind) if one exists; otherwise draft a
+    fresh one with the AI (without persisting it until the user saves)."""
     r = _load_risk(risk_id, company_id, session)
+    saved = EmailDraftRepository(session).get(company_id, risk_id, payload.kind)
+    if saved:
+        return EmailResponse(subject=saved.subject, body=saved.body, kind=payload.kind, saved=True)
     subject, body = EmailService().generate(r, payload.kind)
-    return EmailResponse(subject=subject, body=body, kind=payload.kind)
+    return EmailResponse(subject=subject, body=body, kind=payload.kind, saved=False)
+
+
+@router.put("/{risk_id}/email", response_model=EmailResponse)
+def save_email_draft(
+    risk_id: int,
+    payload: EmailSaveRequest,
+    company_id: int = Depends(get_current_company_id),
+    session: Session = Depends(get_session),
+) -> EmailResponse:
+    """Persist the user's edited draft so reopening loads exactly what they saved."""
+    _load_risk(risk_id, company_id, session)
+    draft = EmailDraftRepository(session).upsert(
+        company_id, risk_id, payload.kind, payload.subject, payload.body
+    )
+    return EmailResponse(subject=draft.subject, body=draft.body, kind=draft.kind, saved=True)

@@ -231,15 +231,15 @@ class TwinBuilder:
                          and k != match.supplier.key],
             ))
             risk_ids.append(risk.id)
-            # Two deterministic starter actions.
+            # Two deterministic starter actions (deduped by title).
             if result.severity in {Severity.CRITICAL, Severity.HIGH}:
-                action_repo.add(Action(
+                action_repo.add_unique(Action(
                     company_id=company.id, risk_id=risk.id,
                     title=f"Draft customer notification — {risk.title}",
                     owner="Customer Success", deadline="", priority=Severity.HIGH,
                     status=ActionStatus.RECOMMENDED, department="Customer Success",
                 ))
-            action_repo.add(Action(
+            action_repo.add_unique(Action(
                 company_id=company.id, risk_id=risk.id,
                 title=f"Evaluate alternate supplier — {match.supplier.name}",
                 owner="Procurement", deadline="", priority=Severity.MEDIUM,

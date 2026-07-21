@@ -90,18 +90,29 @@ class IntelligencePipeline:
         impact_tiles, revenue = self.impact.predict(match, graph, result.score)
         chain = self._build_chain(event, match, graph)
 
+        score = result.score
+        severity = result.severity
+        confidence = result.confidence
+        factors = result.factors
+
+        # Quantitative AI assessment: the model refines the metrics, grounded by
+        # the deterministic baseline. Validated + clamped, with fallback.
+        score, severity, confidence, revenue, factors, impact_tiles = self._ai_assess(
+            event, match, score, severity, confidence, revenue, factors, impact_tiles
+        )
+
         risk = Risk(
             company_id=company_id,
             event_id=event.id,
             title=self._title(event, match),
             headline=event.summary or news.title,
             supplier=match.supplier.name,
-            severity=result.severity,
-            score=result.score,
-            confidence=result.confidence,
+            severity=severity,
+            score=score,
+            confidence=confidence,
             reasoning=self._reasoning(event, match, result, coverage),
             revenue_at_risk=revenue,
-            factors=result.factors,
+            factors=factors,
             impact=impact_tiles,
             chain=chain,
         )
@@ -113,6 +124,56 @@ class IntelligencePipeline:
         return PipelineResult(news, event, risk, actions, matched=True)
 
     # -- helpers --------------------------------------------------------------
+    def _ai_assess(self, event, match, score, severity, confidence, revenue, factors, impact_tiles):
+        """Refine metrics with the AI agent, validating against the baseline."""
+        from app.models.entities import Severity
+        from app.services.ai.adapter import ai_client
+
+        if not ai_client.live:
+            return score, severity, confidence, revenue, factors, impact_tiles
+
+        data = ai_client.assess_risk({
+            "event_type": event.type,
+            "country": event.country,
+            "supplier": match.supplier.name,
+            "supplier_attributes": match.supplier.attributes,
+            "baseline": {
+                "score": score, "severity": severity.value, "confidence": confidence,
+                "revenue_at_risk": revenue, "factors": factors, "impact": impact_tiles,
+            },
+        })
+        if not data:
+            return score, severity, confidence, revenue, factors, impact_tiles
+
+        try:
+            if "score" in data:
+                score = max(0, min(100, int(data["score"])))
+            if data.get("severity"):
+                severity = Severity(str(data["severity"]).lower())
+            if "confidence" in data:
+                confidence = max(0.0, min(1.0, float(data["confidence"])))
+            if "revenue_at_risk" in data:
+                rev = float(data["revenue_at_risk"])
+                # Guard against wild values: keep within 10x of the baseline.
+                if revenue and 0 < rev <= revenue * 10:
+                    revenue = rev
+                elif not revenue and rev > 0:
+                    revenue = rev
+            if isinstance(data.get("factors"), list) and data["factors"]:
+                factors = [
+                    {"label": str(f["label"]), "value": max(0, min(100, int(f["value"])))}
+                    for f in data["factors"] if "label" in f and "value" in f
+                ] or factors
+            if isinstance(data.get("impact"), list) and data["impact"]:
+                impact_tiles = [
+                    {"label": str(i["label"]), "value": str(i["value"])}
+                    for i in data["impact"] if "label" in i and "value" in i
+                ] or impact_tiles
+            logger.info("AI risk assessment applied (provider=%s).", ai_client.provider)
+        except (ValueError, KeyError, TypeError) as exc:
+            logger.info("AI assessment invalid (%s); keeping deterministic.", exc)
+        return score, severity, confidence, revenue, factors, impact_tiles
+
     def _persist_recommendations(self, company_id: int, risk: Risk) -> list[Action]:
         actions: list[Action] = []
         for rec in self.recommender.recommend(risk):
@@ -123,7 +184,9 @@ class IntelligencePipeline:
                 estimated_benefit=rec.estimated_benefit,
                 estimated_cost=rec.estimated_cost, department=rec.department,
             )
-            actions.append(self.action_repo.add(action))
+            saved = self.action_repo.add_unique(action)  # skip duplicates
+            if saved:
+                actions.append(saved)
         return actions
 
     @staticmethod

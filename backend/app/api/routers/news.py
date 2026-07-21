@@ -32,7 +32,8 @@ def recent_news(
 ) -> list[NewsCard]:
     items = NewsRepository(session).latest(20)
     return [
-        NewsCard(id=n.id, source=n.source, title=n.title, time=relative_time(n.published_at))
+        NewsCard(id=n.id, source=n.source, title=n.title,
+                 time=relative_time(n.published_at), url=n.url or "")
         for n in items
     ]
 

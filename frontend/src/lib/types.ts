@@ -35,6 +35,7 @@ export interface NewsCard {
   source: string;
   title: string;
   time: string;
+  url: string;
 }
 
 export interface DashboardResponse {
@@ -109,6 +110,7 @@ export interface EmailResponse {
   subject: string;
   body: string;
   kind: string;
+  saved: boolean;
 }
 
 export interface IngestResult {

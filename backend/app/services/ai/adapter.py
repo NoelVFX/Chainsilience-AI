@@ -159,6 +159,30 @@ class AIClient:
         data = _extract_json(out or "")
         return data if isinstance(data, dict) else {}
 
+    # -- Module 3b: quantitative risk assessment -----------------------------
+    def assess_risk(self, context: dict[str, Any]) -> dict[str, Any] | None:
+        """Produce the numeric risk metrics (score, revenue at risk, impact).
+
+        The deterministic baseline is provided in the context to ground the model;
+        it may adjust within reason. Returns a dict or None (caller falls back).
+        Keys: score(0-100), severity, confidence(0-1), revenue_at_risk(number),
+        factors[{label,value 0-100}], impact[{label,value string}].
+        """
+        out = self._chat(
+            "You are a supply-chain risk quantification agent. Using the event and "
+            "Digital Twin context (with a deterministic baseline), return refined "
+            "metrics as JSON ONLY: {\"score\": int 0-100, \"severity\": "
+            "critical|high|medium|low, \"confidence\": 0-1, \"revenue_at_risk\": "
+            "number (USD), \"factors\": [{\"label\": string, \"value\": int 0-100}], "
+            "\"impact\": [{\"label\": string, \"value\": string}]}. Keep values "
+            "realistic and consistent with the baseline order of magnitude.",
+            json.dumps(context),
+            json_mode=True,
+            temperature=0.1,
+        )
+        data = _extract_json(out or "")
+        return data if isinstance(data, dict) else None
+
     # -- Module 3: risk reasoning --------------------------------------------
     def risk_reasoning(self, context: dict[str, Any]) -> str:
         out = self._chat(

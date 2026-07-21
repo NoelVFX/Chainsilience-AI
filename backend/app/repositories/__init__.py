@@ -6,6 +6,7 @@ persistence-agnostic and testable.
 from app.repositories.repos import (  # noqa: F401
     ActionRepository,
     CompanyRepository,
+    EmailDraftRepository,
     EventRepository,
     FeedbackRepository,
     NewsRepository,
@@ -17,6 +18,7 @@ from app.repositories.repos import (  # noqa: F401
 __all__ = [
     "ActionRepository",
     "CompanyRepository",
+    "EmailDraftRepository",
     "EventRepository",
     "FeedbackRepository",
     "NewsRepository",

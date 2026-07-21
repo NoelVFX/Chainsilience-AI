@@ -102,18 +102,39 @@ export default function DashboardPage() {
             <div className="card">
               <div className="mb-3.5 text-[15px] font-bold text-text">Recent News</div>
               <div className="flex flex-col gap-3">
-                {data.news.map((n) => (
-                  <div
-                    key={n.id}
-                    className="news-hover flex justify-between gap-3 rounded-lg border-b border-line p-2"
-                  >
-                    <div>
-                      <div className="text-[13px] font-medium text-text">{n.title}</div>
-                      <div className="mt-[3px] text-[11.5px] text-muted">{n.source}</div>
+                {data.news.map((n) => {
+                  const clickable = Boolean(n.url);
+                  const Row = (
+                    <>
+                      <div>
+                        <div className="text-[13px] font-medium text-text">
+                          {n.title}
+                          {clickable && <span className="ml-1.5 text-[11px] text-cyan">↗</span>}
+                        </div>
+                        <div className="mt-[3px] text-[11.5px] text-muted">{n.source}</div>
+                      </div>
+                      <div className="whitespace-nowrap text-[11.5px] text-muted">{n.time}</div>
+                    </>
+                  );
+                  return clickable ? (
+                    <a
+                      key={n.id}
+                      href={n.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="news-hover flex justify-between gap-3 rounded-lg border-b border-line p-2 no-underline"
+                    >
+                      {Row}
+                    </a>
+                  ) : (
+                    <div
+                      key={n.id}
+                      className="news-hover flex justify-between gap-3 rounded-lg border-b border-line p-2"
+                    >
+                      {Row}
                     </div>
-                    <div className="whitespace-nowrap text-[11.5px] text-muted">{n.time}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

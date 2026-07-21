@@ -43,7 +43,7 @@ class DashboardService:
             "risks": [self._risk_card(r) for r in risks[:4]],
             "news": [
                 {"id": n.id, "source": n.source, "title": n.title,
-                 "time": relative_time(n.published_at)}
+                 "time": relative_time(n.published_at), "url": n.url or ""}
                 for n in news
             ],
             "actions_summary": self._actions_summary(actions),

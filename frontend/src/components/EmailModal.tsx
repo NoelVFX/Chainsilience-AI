@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-import { useGenerateEmail } from "@/lib/hooks";
+import { useGenerateEmail, useSaveEmailDraft } from "@/lib/hooks";
 
 const KINDS = [
   { id: "customer", label: "Customer" },
@@ -11,16 +11,44 @@ const KINDS = [
   { id: "procurement", label: "Procurement" },
 ];
 
-/** AI email generator modal — drafts an editable communication for a risk. */
+/**
+ * AI email generator modal. Loads a saved draft for the selected recipient if
+ * one exists (otherwise drafts a fresh one with the AI). Editing is controlled,
+ * and "Save Draft" persists the exact edited content so reopening restores it.
+ */
 export function EmailModal({ riskId, onClose }: { riskId: number; onClose: () => void }) {
-  const generate = useGenerateEmail(riskId);
+  const load = useGenerateEmail(riskId);
+  const save = useSaveEmailDraft(riskId);
 
+  const [kind, setKind] = useState("customer");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Load the (saved or freshly generated) email whenever the recipient changes.
   useEffect(() => {
-    generate.mutate("customer");
+    let active = true;
+    load
+      .mutateAsync(kind)
+      .then((res) => {
+        if (!active) return;
+        setSubject(res.subject);
+        setBody(res.body);
+        setIsSaved(res.saved);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [kind]);
 
-  const email = generate.data;
+  async function handleSave() {
+    await save.mutateAsync({ kind, subject, body });
+    setIsSaved(true);
+  }
+
+  const loading = load.isPending;
 
   return (
     <div
@@ -34,7 +62,15 @@ export function EmailModal({ riskId, onClose }: { riskId: number; onClose: () =>
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <div className="text-[15px] font-bold text-text">Generate Mitigation Email</div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[15px] font-bold text-text">Generate Mitigation Email</span>
+            {isSaved && !loading && (
+              <span className="rounded-md px-2 py-0.5 text-[10.5px] font-semibold"
+                style={{ background: "rgba(52,211,153,0.14)", color: "#34d399" }}>
+                Saved draft
+              </span>
+            )}
+          </div>
           <button onClick={onClose} className="text-muted hover:text-text">✕</button>
         </div>
 
@@ -42,13 +78,12 @@ export function EmailModal({ riskId, onClose }: { riskId: number; onClose: () =>
           {KINDS.map((k) => (
             <button
               key={k.id}
-              onClick={() => generate.mutate(k.id)}
+              onClick={() => setKind(k.id)}
               className="rounded-control border px-3 py-1.5 text-[12px] font-semibold transition-colors"
               style={{
-                borderColor:
-                  email?.kind === k.id ? "rgba(34,211,238,0.5)" : "rgba(148,163,184,0.18)",
-                color: email?.kind === k.id ? "#22d3ee" : "#8b98b3",
-                background: email?.kind === k.id ? "rgba(34,211,238,0.08)" : "transparent",
+                borderColor: kind === k.id ? "rgba(34,211,238,0.5)" : "rgba(148,163,184,0.18)",
+                color: kind === k.id ? "#22d3ee" : "#8b98b3",
+                background: kind === k.id ? "rgba(34,211,238,0.08)" : "transparent",
               }}
             >
               {k.label}
@@ -56,22 +91,36 @@ export function EmailModal({ riskId, onClose }: { riskId: number; onClose: () =>
           ))}
         </div>
 
-        {generate.isPending || !email ? (
+        {loading ? (
           <div className="h-52 animate-pulse rounded-control bg-inset" />
         ) : (
           <>
             <div className="mb-1.5 text-[11px] font-semibold text-muted">Subject</div>
-            <input className="panel-input mb-3" defaultValue={email.subject} key={`s-${email.kind}`} />
+            <input
+              className="panel-input mb-3"
+              value={subject}
+              onChange={(e) => {
+                setSubject(e.target.value);
+                setIsSaved(false);
+              }}
+            />
             <div className="mb-1.5 text-[11px] font-semibold text-muted">Body</div>
             <textarea
               className="panel-input min-h-[220px] resize-y font-sans leading-[1.6]"
-              defaultValue={email.body}
-              key={`b-${email.kind}`}
+              value={body}
+              onChange={(e) => {
+                setBody(e.target.value);
+                setIsSaved(false);
+              }}
             />
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-4 flex items-center justify-end gap-2">
               <button onClick={onClose} className="btn-ghost px-4 py-2">Close</button>
-              <button className="btn-primary px-4 py-2" onClick={onClose}>
-                Save Draft
+              <button
+                className="btn-primary px-4 py-2"
+                onClick={handleSave}
+                disabled={save.isPending || isSaved}
+              >
+                {save.isPending ? "Saving…" : isSaved ? "Saved ✓" : "Save Draft"}
               </button>
             </div>
           </>

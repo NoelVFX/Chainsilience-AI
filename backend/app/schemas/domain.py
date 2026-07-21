@@ -55,6 +55,7 @@ class NewsCard(BaseModel):
     source: str
     title: str
     time: str
+    url: str = ""
 
 
 class DashboardResponse(BaseModel):
@@ -142,10 +143,17 @@ class EmailRequest(BaseModel):
     kind: str = "customer"  # customer | supplier | executive | procurement
 
 
+class EmailSaveRequest(BaseModel):
+    kind: str = "customer"
+    subject: str
+    body: str
+
+
 class EmailResponse(BaseModel):
     subject: str
     body: str
     kind: str
+    saved: bool = False  # True when loaded from a saved draft (not freshly generated)
 
 
 # --- Feedback ----------------------------------------------------------------

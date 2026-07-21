@@ -51,10 +51,15 @@ def approve(
     if not scenario:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown scenario")
 
-    action = ActionRepository(session).add(
+    repo = ActionRepository(session)
+    title = f"{scenario['name']} — {risk.title}"
+    # Dedupe: don't add a second identical action if approved again.
+    if repo.exists_title(company_id, title):
+        return {"action_id": None, "status": "already_exists", "message": "Already in Action Center."}
+
+    action = repo.add(
         Action(
-            company_id=company_id, risk_id=risk.id,
-            title=f"{scenario['name']} — {risk.title}",
+            company_id=company_id, risk_id=risk.id, title=title,
             owner="Procurement", deadline="",
             priority=Severity.CRITICAL if risk.severity == Severity.CRITICAL else Severity.HIGH,
             status=ActionStatus.APPROVED,

@@ -15,6 +15,7 @@ from app.models.entities import (
     ActionStatus,
     Company,
     Edge,
+    EmailDraft,
     Event,
     Feedback,
     NewsItem,
@@ -164,11 +165,25 @@ class ActionRepository:
     def get(self, action_id: int) -> Action | None:
         return self.session.get(Action, action_id)
 
+    def exists_title(self, company_id: int, title: str) -> bool:
+        """True if an action with this title already exists for the company."""
+        return self.session.exec(
+            select(Action.id).where(
+                Action.company_id == company_id, Action.title == title
+            )
+        ).first() is not None
+
     def add(self, action: Action) -> Action:
         self.session.add(action)
         self.session.commit()
         self.session.refresh(action)
         return action
+
+    def add_unique(self, action: Action) -> Action | None:
+        """Add an action only if no same-title action exists (dedupe)."""
+        if self.exists_title(action.company_id, action.title):
+            return None
+        return self.add(action)
 
     def update_status(self, action: Action, status: ActionStatus) -> Action:
         action.status = status
@@ -176,6 +191,34 @@ class ActionRepository:
         self.session.commit()
         self.session.refresh(action)
         return action
+
+
+class EmailDraftRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get(self, company_id: int, risk_id: int, kind: str) -> EmailDraft | None:
+        return self.session.exec(
+            select(EmailDraft).where(
+                EmailDraft.company_id == company_id,
+                EmailDraft.risk_id == risk_id,
+                EmailDraft.kind == kind,
+            )
+        ).first()
+
+    def upsert(self, company_id: int, risk_id: int, kind: str, subject: str, body: str) -> EmailDraft:
+        from app.models.entities import _utcnow
+
+        draft = self.get(company_id, risk_id, kind)
+        if draft is None:
+            draft = EmailDraft(company_id=company_id, risk_id=risk_id, kind=kind)
+        draft.subject = subject
+        draft.body = body
+        draft.updated_at = _utcnow()
+        self.session.add(draft)
+        self.session.commit()
+        self.session.refresh(draft)
+        return draft
 
 
 class FeedbackRepository:
