@@ -72,7 +72,10 @@ class AIClient:
         try:  # pragma: no cover - needs optional dep + network
             from openai import OpenAI
 
-            self._client = OpenAI(api_key=key, base_url=base_url)
+            self._client = OpenAI(
+                api_key=key, base_url=base_url,
+                timeout=settings.ai_request_timeout, max_retries=1,
+            )
             self.provider = provider
             self.model = model
             logger.info("AIClient: %s enabled (model=%s).", provider, model)
@@ -95,7 +98,7 @@ class AIClient:
                     {"role": "user", "content": user},
                 ],
                 "temperature": temperature,
-                "max_tokens": 900,
+                "max_tokens": settings.ai_max_tokens,
             }
             if json_mode:
                 kwargs["response_format"] = {"type": "json_object"}

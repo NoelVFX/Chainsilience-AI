@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
 
+    # Hard per-call timeout (seconds) so a slow/unreachable LLM endpoint can
+    # never hang a request — the adapter falls back deterministically instead.
+    ai_request_timeout: float = 25.0
+    ai_max_tokens: int = 900
+
     # --- News scraping --------------------------------------------------------
     # Curated public RSS feeds for supply-chain / trade / logistics / disaster
     # signals. Fetched live on demand; falls back to an offline sample when the
