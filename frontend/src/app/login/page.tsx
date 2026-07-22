@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AmbientOrbs } from "@/components/AmbientOrbs";
 import { EarthLoader } from "@/components/EarthLoader";
 import { Logo } from "@/components/Logo";
+import { FadeUp } from "@/components/motion";
 import { GlobeMount } from "@/components/three/GlobeMount";
 import { useLogin } from "@/lib/hooks";
 
@@ -13,8 +14,8 @@ import { useLogin } from "@/lib/hooks";
 export default function LoginPage() {
   const router = useRouter();
   const login = useLogin();
-  const [email, setEmail] = useState("demo@chainsight.ai");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   async function handleSignIn() {
     try {
@@ -40,7 +41,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="login-parent relative z-10 w-[400px] max-w-full">
+      <FadeUp y={22} className="login-parent relative z-10 w-[400px] max-w-full">
       <div
         className="login-card rounded-panel border border-line bg-surface p-10"
         style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(34,211,238,0.08)" }}
@@ -68,7 +69,6 @@ export default function LoginPage() {
             <input
               type="password"
               className="panel-input"
-              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSignIn()}
@@ -82,7 +82,7 @@ export default function LoginPage() {
 
           {login.isError && (
             <div className="text-xs text-danger">
-              Invalid email or password. Try the demo credentials below.
+              Invalid email or password.
             </div>
           )}
 
@@ -103,12 +103,9 @@ export default function LoginPage() {
               Start onboarding
             </span>
           </div>
-          <div className="mt-1 text-center text-[11px] text-muted/70">
-            Demo: demo@chainsight.ai · demo1234
-          </div>
         </div>
       </div>
-      </div>
+      </FadeUp>
     </div>
   );
 }

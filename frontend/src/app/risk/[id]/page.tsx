@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { EmailModal } from "@/components/EmailModal";
+import { AnimatedBar, FadeUp } from "@/components/motion";
 import { useRiskDetail } from "@/lib/hooks";
 
 /** Screen 4 — Risk Detail: breakdown, reasoning, event chain, impact. */
@@ -43,7 +44,7 @@ export default function RiskDetailPage() {
 
           <div className="grid grid-cols-2 gap-4">
             {/* Left column */}
-            <div className="flex flex-col gap-4">
+            <FadeUp className="flex flex-col gap-4">
               <div className="card">
                 <div className="mb-3.5 text-[15px] font-bold text-text">Risk Score Breakdown</div>
                 {data.factors.map((f) => (
@@ -52,15 +53,10 @@ export default function RiskDetailPage() {
                       <span>{f.label}</span>
                       <span className="font-semibold text-text">{f.value}</span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-[3px] bg-inset">
-                      <div
-                        className="h-full rounded-[3px]"
-                        style={{
-                          width: `${f.value}%`,
-                          background: "linear-gradient(90deg,#22d3ee,#3b82f6)",
-                        }}
-                      />
-                    </div>
+                    <AnimatedBar
+                      pct={f.value}
+                      gradient="linear-gradient(90deg,#22d3ee,#3b82f6)"
+                    />
                   </div>
                 ))}
               </div>
@@ -69,10 +65,10 @@ export default function RiskDetailPage() {
                 <div className="mb-2.5 text-[15px] font-bold text-text">AI Reasoning</div>
                 <p className="text-[13px] leading-[1.7] text-muted">{data.reasoning}</p>
               </div>
-            </div>
+            </FadeUp>
 
             {/* Right column */}
-            <div className="flex flex-col gap-4">
+            <FadeUp delay={0.12} className="flex flex-col gap-4">
               <div className="card">
                 <div className="mb-3.5 text-[15px] font-bold text-text">Event Chain</div>
                 <div className="flex flex-col">
@@ -101,7 +97,7 @@ export default function RiskDetailPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </FadeUp>
           </div>
 
           <div className="mt-5 flex gap-3">

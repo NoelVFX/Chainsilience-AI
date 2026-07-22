@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { DisruptionMap } from "@/components/DisruptionMap";
 import { EarthLoader } from "@/components/EarthLoader";
+import { FadeUp } from "@/components/motion";
 import { useDashboard, useIngestNews } from "@/lib/hooks";
 
 /** Screen 3 — Dashboard: KPI row, Top Risks, disruption map, news, actions. */
@@ -61,7 +62,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Top Risks + Map */}
-          <div className="mb-4 grid grid-cols-[2.3fr_1fr] gap-4">
+          <FadeUp delay={0.18} className="mb-4 grid grid-cols-[2.3fr_1fr] gap-4">
             <div className="card">
               <div className="mb-3.5 text-[15px] font-bold text-text">Top Risks</div>
               <div className="flex flex-col">
@@ -95,10 +96,10 @@ export default function DashboardPage() {
               <div className="mb-3.5 text-[15px] font-bold text-text">Global Disruption Map</div>
               <DisruptionMap points={data.map_points} />
             </div>
-          </div>
+          </FadeUp>
 
           {/* News + Recommended Actions */}
-          <div className="grid grid-cols-[1.6fr_1fr] gap-4">
+          <FadeUp delay={0.3} className="grid grid-cols-[1.6fr_1fr] gap-4">
             <div className="card">
               <div className="mb-3.5 text-[15px] font-bold text-text">Recent News</div>
               <div className="flex flex-col gap-3">
@@ -155,7 +156,7 @@ export default function DashboardPage() {
                 Open Action Center
               </button>
             </div>
-          </div>
+          </FadeUp>
         </>
       )}
     </AppShell>

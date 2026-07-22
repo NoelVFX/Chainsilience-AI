@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
+import { FadeUp, Stagger, StaggerItem } from "@/components/motion";
 import { useApproveScenario, useScenarios } from "@/lib/hooks";
 import type { ScenarioTile } from "@/lib/types";
 
@@ -65,31 +66,32 @@ function SimulatorInner() {
       <p className="mb-6 text-[13px] text-muted">{data.risk_title}</p>
 
       {/* Scenario cards */}
-      <div className="mb-6 grid grid-cols-4 gap-3.5">
+      <Stagger className="mb-6 grid grid-cols-4 gap-3.5">
         {data.scenarios.map((s) => {
           const active = s.id === selected.id;
           return (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSelectedId(s.id);
-                setNotice(null);
-              }}
-              className="tilt-card rounded-card bg-surface p-[18px] text-left"
-              style={{
-                border: active ? "1.5px solid #22d3ee" : "1px solid rgba(148,163,184,0.14)",
-              }}
-            >
-              <div className="text-sm font-bold text-text">{s.name}</div>
-              <div className="mt-2 text-xs text-muted">Risk reduction</div>
-              <div className="text-lg font-extrabold text-cyan">{s.risk_reduction}</div>
-            </button>
+            <StaggerItem key={s.id}>
+              <button
+                onClick={() => {
+                  setSelectedId(s.id);
+                  setNotice(null);
+                }}
+                className="tilt-card h-full w-full rounded-card bg-surface p-[18px] text-left"
+                style={{
+                  border: active ? "1.5px solid #22d3ee" : "1px solid rgba(148,163,184,0.14)",
+                }}
+              >
+                <div className="text-sm font-bold text-text">{s.name}</div>
+                <div className="mt-2 text-xs text-muted">Risk reduction</div>
+                <div className="text-lg font-extrabold text-cyan">{s.risk_reduction}</div>
+              </button>
+            </StaggerItem>
           );
         })}
-      </div>
+      </Stagger>
 
-      {/* Comparison panel */}
-      <div className="card p-6">
+      {/* Comparison panel — re-animates when the selected scenario changes */}
+      <FadeUp key={selected.id} y={10} delay={0.05} className="card p-6">
         <div className="mb-4 text-[15px] font-bold text-text">{selected.name} — Comparison</div>
         <div className="mb-5 grid grid-cols-4 gap-4">
           <StatTile label="Risk Reduction" value={selected.risk_reduction} color="#34d399" />
@@ -116,7 +118,7 @@ function SimulatorInner() {
             ⚠ {notice}
           </div>
         )}
-      </div>
+      </FadeUp>
     </>
   );
 }

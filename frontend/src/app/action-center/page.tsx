@@ -1,6 +1,9 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
+
 import { AppShell } from "@/components/AppShell";
+import { Stagger, StaggerItem } from "@/components/motion";
 import { useActionBoard, useDeleteAction, useMoveAction } from "@/lib/hooks";
 import type { ActionCard } from "@/lib/types";
 
@@ -33,37 +36,44 @@ export default function ActionCenterPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-5 items-start gap-3.5">
+        <Stagger className="grid grid-cols-5 items-start gap-3.5">
           {data.columns.map((col) => (
-            <div key={col.key}>
+            <StaggerItem key={col.key}>
               <div className="mb-2.5 text-xs font-bold uppercase tracking-[0.04em] text-muted">
                 {col.name}
               </div>
               <div className="flex flex-col gap-2.5">
-                {col.items.map((it) => (
-                  <ActionKanbanCard
-                    key={it.id}
-                    card={it}
-                    onAdvance={() => {
-                      const next = NEXT_STATUS[it.status];
-                      if (next) move.mutate({ id: it.id, status: next });
-                    }}
-                    onDelete={
-                      it.status === "completed"
-                        ? () => remove.mutate(it.id)
-                        : undefined
-                    }
-                  />
-                ))}
+                <AnimatePresence initial={false}>
+                  {col.items.map((it) => (
+                    <motion.div
+                      key={it.id}
+                      layout
+                      exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.2 } }}
+                    >
+                      <ActionKanbanCard
+                        card={it}
+                        onAdvance={() => {
+                          const next = NEXT_STATUS[it.status];
+                          if (next) move.mutate({ id: it.id, status: next });
+                        }}
+                        onDelete={
+                          it.status === "completed"
+                            ? () => remove.mutate(it.id)
+                            : undefined
+                        }
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
                 {col.items.length === 0 && (
                   <div className="rounded-card border border-dashed border-line py-6 text-center text-[11px] text-muted/60">
                     —
                   </div>
                 )}
               </div>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       )}
       <p className="mt-6 text-[11.5px] text-muted/70">
         Tip: click a card to advance it. Completing a mitigation reduces its

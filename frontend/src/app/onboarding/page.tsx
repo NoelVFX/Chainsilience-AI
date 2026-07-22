@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AmbientOrbs } from "@/components/AmbientOrbs";
+import { FadeUp } from "@/components/motion";
 import { GlobeMount } from "@/components/three/GlobeMount";
 import { ApiError, getToken } from "@/lib/api";
 import { useOnboarding, useRegister, useUploadTwinCsv } from "@/lib/hooks";
@@ -99,8 +100,9 @@ export default function OnboardingPage() {
         </div>
       </div>
 
+      <FadeUp y={22} className="relative z-10 w-[720px] max-w-full">
       <div
-        className="relative z-10 w-[720px] max-w-full rounded-panel border border-line bg-surface p-11"
+        className="rounded-panel border border-line bg-surface p-11"
         style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45)" }}
       >
         <div className="flex items-center gap-3">
@@ -255,6 +257,7 @@ export default function OnboardingPage() {
           </div>
         )}
       </div>
+      </FadeUp>
     </div>
   );
 }
