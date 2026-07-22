@@ -1,7 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/AppShell";
-import { useActionBoard, useMoveAction } from "@/lib/hooks";
+import { useActionBoard, useDeleteAction, useMoveAction } from "@/lib/hooks";
 import type { ActionCard } from "@/lib/types";
 
 // Column order → the next stage an action advances to when clicked.
@@ -17,6 +17,7 @@ const NEXT_STATUS: Record<string, string | null> = {
 export default function ActionCenterPage() {
   const { data, isLoading } = useActionBoard();
   const move = useMoveAction();
+  const remove = useDeleteAction();
 
   return (
     <AppShell>
@@ -47,6 +48,11 @@ export default function ActionCenterPage() {
                       const next = NEXT_STATUS[it.status];
                       if (next) move.mutate({ id: it.id, status: next });
                     }}
+                    onDelete={
+                      it.status === "completed"
+                        ? () => remove.mutate(it.id)
+                        : undefined
+                    }
                   />
                 ))}
                 {col.items.length === 0 && (
@@ -60,19 +66,42 @@ export default function ActionCenterPage() {
         </div>
       )}
       <p className="mt-6 text-[11.5px] text-muted/70">
-        Tip: click a card to advance it to the next stage of the workflow.
+        Tip: click a card to advance it. Completing a mitigation reduces its
+        risk&apos;s score and revenue at risk on the dashboard; use ✕ to clear
+        completed cards from the board.
       </p>
     </AppShell>
   );
 }
 
-function ActionKanbanCard({ card, onAdvance }: { card: ActionCard; onAdvance: () => void }) {
+function ActionKanbanCard({
+  card,
+  onAdvance,
+  onDelete,
+}: {
+  card: ActionCard;
+  onAdvance: () => void;
+  onDelete?: () => void;
+}) {
   const advanceable = NEXT_STATUS[card.status] !== null;
   return (
     <div
       onClick={advanceable ? onAdvance : undefined}
-      className={`tilt-card-sm rounded-panel border border-line bg-surface p-3.5 ${advanceable ? "cursor-pointer" : ""}`}
+      className={`tilt-card-sm group relative rounded-panel border border-line bg-surface p-3.5 ${advanceable ? "cursor-pointer" : ""}`}
     >
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="Remove from board"
+          className="absolute right-2 top-2 hidden h-5 w-5 items-center justify-center rounded-md text-[11px] text-muted transition-colors hover:text-danger group-hover:flex"
+          style={{ background: "rgba(148,163,184,0.08)" }}
+        >
+          ✕
+        </button>
+      )}
       <div
         className="mb-1.5 text-[10.5px] font-bold uppercase"
         style={{ color: card.priority_color }}

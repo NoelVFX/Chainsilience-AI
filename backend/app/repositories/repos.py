@@ -192,6 +192,10 @@ class ActionRepository:
         self.session.refresh(action)
         return action
 
+    def delete(self, action: Action) -> None:
+        self.session.delete(action)
+        self.session.commit()
+
 
 class EmailDraftRepository:
     def __init__(self, session: Session) -> None:

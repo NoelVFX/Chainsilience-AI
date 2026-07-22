@@ -13,6 +13,7 @@ from app.schemas.domain import (
     ScenarioResponse,
     ScenarioTile,
 )
+from app.services.recommendations import RecommendationService
 from app.services.scenario import ScenarioService
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -42,7 +43,14 @@ def approve(
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
 ) -> dict:
-    """Approve a scenario — creates an action in the Action Center pipeline."""
+    """Approve a scenario → send it to the Action Center.
+
+    Rules:
+      * Approving the **same scenario** twice is rejected ("already approved").
+      * On first approval, the event's AI recommendations are generated into the
+        **Recommended** column (recommendations only appear once a scenario for
+        the event has been approved).
+    """
     risk = RiskRepository(session).get(risk_id)
     if not risk or risk.company_id != company_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Risk not found")
@@ -53,9 +61,14 @@ def approve(
 
     repo = ActionRepository(session)
     title = f"{scenario['name']} — {risk.title}"
-    # Dedupe: don't add a second identical action if approved again.
+
+    # Reject a duplicate approval of the same scenario.
     if repo.exists_title(company_id, title):
-        return {"action_id": None, "status": "already_exists", "message": "Already in Action Center."}
+        return {
+            "approved": False,
+            "status": "already_approved",
+            "message": f"“{scenario['name']}” is already approved and in the Action Center.",
+        }
 
     action = repo.add(
         Action(
@@ -67,4 +80,27 @@ def approve(
             estimated_cost=scenario["cost"], department="Procurement",
         )
     )
-    return {"action_id": action.id, "status": action.status.value}
+
+    # Now that a scenario is approved, surface this event's recommendations in
+    # the Recommended column (deduped).
+    recommended = 0
+    for rec in RecommendationService(ScenarioService()).recommend(risk):
+        saved = repo.add_unique(
+            Action(
+                company_id=company_id, risk_id=risk.id, title=rec.title,
+                owner=rec.department, deadline=rec.deadline, priority=rec.priority,
+                status=ActionStatus.RECOMMENDED,
+                estimated_benefit=rec.estimated_benefit,
+                estimated_cost=rec.estimated_cost, department=rec.department,
+            )
+        )
+        if saved:
+            recommended += 1
+
+    return {
+        "approved": True,
+        "status": action.status.value,
+        "action_id": action.id,
+        "recommended_added": recommended,
+        "message": f"Approved. {recommended} recommended action(s) added.",
+    }

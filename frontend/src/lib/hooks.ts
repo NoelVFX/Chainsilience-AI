@@ -82,11 +82,19 @@ export function useScenarios(riskId: number) {
   });
 }
 
+export interface ApproveResult {
+  approved: boolean;
+  status: string;
+  message: string;
+  action_id?: number;
+  recommended_added?: number;
+}
+
 export function useApproveScenario(riskId: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (scenarioId: string) =>
-      api.post(`/scenarios/${riskId}/approve`, { scenario_id: scenarioId }),
+      api.post<ApproveResult>(`/scenarios/${riskId}/approve`, { scenario_id: scenarioId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["actions"] }),
   });
 }
@@ -103,6 +111,22 @@ export function useMoveAction() {
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       api.patch<ActionCard>(`/actions/${id}`, { status }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["actions"] });
+      if (vars.status === "completed") {
+        // Completing a mitigation reduces the linked risk's metrics — refresh
+        // the dashboard KPIs and any risk detail views.
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+        qc.invalidateQueries({ queryKey: ["risk"] });
+      }
+    },
+  });
+}
+
+export function useDeleteAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.del(`/actions/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["actions"] }),
   });
 }

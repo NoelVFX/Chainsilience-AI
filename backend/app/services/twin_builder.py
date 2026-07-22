@@ -160,14 +160,12 @@ class TwinBuilder:
         exercised on demand via the "Ingest live news" flow instead.
         """
         # Deferred imports keep module load light and avoid cycles.
-        from app.models.entities import Action, ActionStatus, Event, Risk, Severity
+        from app.models.entities import Event, Risk
         from app.services.digital_twin import DigitalTwinService
         from app.services.event_extraction import _classify, _detect_country
         from app.services.impact import ImpactService
         from app.services.matching import MatchingService
-        from app.repositories import (
-            ActionRepository, EventRepository, RiskRepository,
-        )
+        from app.repositories import EventRepository, RiskRepository
         from app.services.risk_scoring import RiskScoringService
 
         countries = _split(company.countries) or ["Global"]
@@ -189,7 +187,6 @@ class TwinBuilder:
         news_repo = NewsRepository(self.session)
         event_repo = EventRepository(self.session)
         risk_repo = RiskRepository(self.session)
-        action_repo = ActionRepository(self.session)
         matcher = MatchingService()
         scorer = RiskScoringService()
         impact = ImpactService()
@@ -231,20 +228,7 @@ class TwinBuilder:
                          and k != match.supplier.key],
             ))
             risk_ids.append(risk.id)
-            # Two deterministic starter actions (deduped by title).
-            if result.severity in {Severity.CRITICAL, Severity.HIGH}:
-                action_repo.add_unique(Action(
-                    company_id=company.id, risk_id=risk.id,
-                    title=f"Draft customer notification — {risk.title}",
-                    owner="Customer Success", deadline="", priority=Severity.HIGH,
-                    status=ActionStatus.RECOMMENDED, department="Customer Success",
-                ))
-            action_repo.add_unique(Action(
-                company_id=company.id, risk_id=risk.id,
-                title=f"Evaluate alternate supplier — {match.supplier.name}",
-                owner="Procurement", deadline="", priority=Severity.MEDIUM,
-                status=ActionStatus.RECOMMENDED, department="Procurement",
-                estimated_benefit="Reduce single-source exposure",
-            ))
+            # No starter actions: recommendations only enter the Action Center
+            # once the user approves a scenario for the event.
         logger.info("Seeded %d starter risk(s) for company %s.", len(risk_ids), company.id)
         return risk_ids

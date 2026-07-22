@@ -118,10 +118,12 @@ class IntelligencePipeline:
         )
         risk = self.risk_repo.add(risk)
 
-        actions = self._persist_recommendations(company_id, risk)
+        # Recommendations are intentionally NOT created here — they only enter the
+        # Action Center once the user approves a scenario for this event
+        # (see /scenarios/{id}/approve).
         logger.info("Pipeline produced risk %s (score %s) for company %s.",
                     risk.id, risk.score, company_id)
-        return PipelineResult(news, event, risk, actions, matched=True)
+        return PipelineResult(news, event, risk, [], matched=True)
 
     # -- helpers --------------------------------------------------------------
     def _ai_assess(self, event, match, score, severity, confidence, revenue, factors, impact_tiles):
@@ -173,21 +175,6 @@ class IntelligencePipeline:
         except (ValueError, KeyError, TypeError) as exc:
             logger.info("AI assessment invalid (%s); keeping deterministic.", exc)
         return score, severity, confidence, revenue, factors, impact_tiles
-
-    def _persist_recommendations(self, company_id: int, risk: Risk) -> list[Action]:
-        actions: list[Action] = []
-        for rec in self.recommender.recommend(risk):
-            action = Action(
-                company_id=company_id, risk_id=risk.id, title=rec.title,
-                owner=rec.department, deadline=rec.deadline, priority=rec.priority,
-                status=self.recommender.initial_status(),
-                estimated_benefit=rec.estimated_benefit,
-                estimated_cost=rec.estimated_cost, department=rec.department,
-            )
-            saved = self.action_repo.add_unique(action)  # skip duplicates
-            if saved:
-                actions.append(saved)
-        return actions
 
     @staticmethod
     def _title(event: Event, match) -> str:

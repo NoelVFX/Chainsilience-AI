@@ -26,6 +26,7 @@ function SimulatorInner() {
   const approve = useApproveScenario(riskId);
 
   const [selectedId, setSelectedId] = useState("switch");
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (data?.scenarios.length) {
@@ -43,7 +44,12 @@ function SimulatorInner() {
     data.scenarios.find((s) => s.id === selectedId) ?? data.scenarios[0];
 
   async function handleApprove() {
-    await approve.mutateAsync(selected.id);
+    const result = await approve.mutateAsync(selected.id);
+    if (!result.approved) {
+      // Duplicate approval — surface the rejection instead of navigating.
+      setNotice(result.message || "This scenario is already approved in the Action Center.");
+      return;
+    }
     router.push("/action-center");
   }
 
@@ -65,7 +71,10 @@ function SimulatorInner() {
           return (
             <button
               key={s.id}
-              onClick={() => setSelectedId(s.id)}
+              onClick={() => {
+                setSelectedId(s.id);
+                setNotice(null);
+              }}
               className="tilt-card rounded-card bg-surface p-[18px] text-left"
               style={{
                 border: active ? "1.5px solid #22d3ee" : "1px solid rgba(148,163,184,0.14)",
@@ -95,6 +104,18 @@ function SimulatorInner() {
         >
           {approve.isPending ? "Sending…" : "Approve & Send to Action Center"}
         </button>
+        {notice && (
+          <div
+            className="mt-3.5 rounded-control border px-4 py-2.5 text-[12.5px] font-semibold"
+            style={{
+              background: "rgba(251,191,36,0.1)",
+              borderColor: "rgba(251,191,36,0.35)",
+              color: "#fbbf24",
+            }}
+          >
+            ⚠ {notice}
+          </div>
+        )}
       </div>
     </>
   );
