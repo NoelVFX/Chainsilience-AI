@@ -1,17 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AmbientOrbs } from "@/components/AmbientOrbs";
 import { GlobeMount } from "@/components/three/GlobeMount";
-import { getToken } from "@/lib/api";
+import { ApiError, getToken } from "@/lib/api";
 import { useOnboarding, useRegister, useUploadTwinCsv } from "@/lib/hooks";
 
 /**
- * Screen 2 — Company Onboarding. Collects the company profile that seeds the
- * Digital Twin. If the visitor has no session yet, a lightweight account is
- * provisioned first (Registration → Onboarding per the spec workflow).
+ * Screen 2 — Company Onboarding. Creates a real account (email + password) and
+ * the company profile that seeds the Digital Twin, so the user can sign back in
+ * later and see their own company's data (all assets are company-scoped).
  */
 export default function OnboardingPage() {
   const router = useRouter();
@@ -20,7 +20,14 @@ export default function OnboardingPage() {
   const uploadCsv = useUploadTwinCsv();
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Whether the visitor already has a session (evaluated client-side only, to
+  // avoid a hydration mismatch). With a session we skip account creation.
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => setHasSession(Boolean(getToken())), []);
+
+  const [account, setAccount] = useState({ email: "", password: "" });
   const [form, setForm] = useState({
     company_name: "Acme Semiconductor Inc.",
     industry: "Semiconductors",
@@ -32,17 +39,28 @@ export default function OnboardingPage() {
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleContinue() {
+    setError(null);
+
+    // Validate the sign-up credentials before doing any work.
+    if (!hasSession) {
+      if (!/^\S+@\S+\.\S+$/.test(account.email)) {
+        setError("Please enter a valid sign-up email address.");
+        return;
+      }
+      if (account.password.length < 6) {
+        setError("Password must be at least 6 characters.");
+        return;
+      }
+    }
+
     setBusy(true);
     try {
-      if (!getToken()) {
-        // Provision a session for the new company, then complete onboarding.
-        const slug = form.company_name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
+      if (!hasSession) {
+        // Create the real user account — these are the credentials the user
+        // signs in with from now on.
         await register.mutateAsync({
-          email: `founder-${Date.now()}@${slug || "company"}.chainsight.ai`,
-          password: "chainsight",
+          email: account.email.trim(),
+          password: account.password,
           company_name: form.company_name,
         });
       }
@@ -56,6 +74,12 @@ export default function OnboardingPage() {
         }
       }
       router.push("/dashboard");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setError("This email is already registered — sign in instead.");
+      } else {
+        setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
+      }
     } finally {
       setBusy(false);
     }
@@ -96,6 +120,37 @@ export default function OnboardingPage() {
           This builds your Digital Twin — the model of your supply chain we use to
           reason about risk.
         </div>
+
+        {!hasSession && (
+          <>
+            <div className="mb-2 text-xs font-bold uppercase tracking-[0.04em] text-cyan">
+              Your account
+            </div>
+            <div className="mb-5 grid grid-cols-2 gap-4">
+              <Field label="Sign-up Email">
+                <input
+                  type="email"
+                  className="panel-input"
+                  placeholder="you@company.com"
+                  value={account.email}
+                  onChange={(e) => setAccount((a) => ({ ...a, email: e.target.value }))}
+                />
+              </Field>
+              <Field label="Password">
+                <input
+                  type="password"
+                  className="panel-input"
+                  placeholder="At least 6 characters"
+                  value={account.password}
+                  onChange={(e) => setAccount((a) => ({ ...a, password: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <div className="mb-2 text-xs font-bold uppercase tracking-[0.04em] text-cyan">
+              Company profile
+            </div>
+          </>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Company Name">
@@ -164,9 +219,41 @@ export default function OnboardingPage() {
           />
         </label>
 
+        {error && (
+          <div
+            className="mt-4 rounded-control border px-4 py-2.5 text-[12.5px] font-semibold"
+            style={{
+              background: "rgba(248,113,113,0.1)",
+              borderColor: "rgba(248,113,113,0.35)",
+              color: "#f87171",
+            }}
+          >
+            {error}{" "}
+            {error.includes("sign in") && (
+              <span
+                onClick={() => router.push("/login")}
+                className="cursor-pointer font-bold text-cyan underline"
+              >
+                Go to sign in
+              </span>
+            )}
+          </div>
+        )}
+
         <button onClick={handleContinue} disabled={busy} className="btn-primary mt-6 w-full py-3.5">
           {busy ? "Building Digital Twin…" : "Build Digital Twin & Continue"}
         </button>
+        {!hasSession && (
+          <div className="mt-3 text-center text-[12px] text-muted">
+            Already have an account?{" "}
+            <span
+              onClick={() => router.push("/login")}
+              className="cursor-pointer font-semibold text-cyan"
+            >
+              Sign in
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
