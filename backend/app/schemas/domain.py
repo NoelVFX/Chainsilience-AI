@@ -100,12 +100,15 @@ class ScenarioTile(BaseModel):
     cost: str
     recovery: str
     financial: str
+    score: int = 0  # 0-100 multi-objective fit for the chosen priority
+    rank: int = 0
 
 
 class ScenarioResponse(BaseModel):
     risk_id: int
     risk_title: str
     scenarios: list[ScenarioTile]
+    priority: str = "balanced"
 
 
 class ApproveScenarioRequest(BaseModel):

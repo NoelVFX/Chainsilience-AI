@@ -78,12 +78,15 @@ export interface ScenarioTile {
   cost: string;
   recovery: string;
   financial: string;
+  score: number;
+  rank: number;
 }
 
 export interface ScenarioResponse {
   risk_id: number;
   risk_title: string;
   scenarios: ScenarioTile[];
+  priority: string;
 }
 
 export interface ActionCard {

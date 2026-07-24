@@ -20,6 +20,7 @@ from app.schemas.domain import (
     RiskDetailResponse,
 )
 from app.services.email_gen import EmailService
+from app.services.monte_carlo import MonteCarloService
 
 router = APIRouter(prefix="/risks", tags=["risks"])
 
@@ -56,13 +57,21 @@ def risk_detail(
     session: Session = Depends(get_session),
 ) -> RiskDetailResponse:
     r = _load_risk(risk_id, company_id, session)
+
+    # Predicted-impact tiles + a Monte Carlo production-stoppage probability
+    # (10k simulated scenarios over the company's own risk metrics), unless the
+    # risk already carries one.
+    impact = list(r.impact or [])
+    if not any(t.get("label") == "Production Stoppage" for t in impact):
+        impact.append(MonteCarloService().stoppage_tile(r))
+
     return RiskDetailResponse(
         id=r.id, title=r.headline or r.title, headline=r.headline or r.title,
         severity=severity_label(r.severity).upper(), severity_color=severity_color(r.severity),
         score=r.score, confidence=r.confidence, time=relative_time(r.created_at),
         reasoning=r.reasoning,
         factors=[Factor(**f) for f in r.factors],
-        impact=[ImpactTile(**i) for i in r.impact],
+        impact=[ImpactTile(**i) for i in impact],
         chain=r.chain,
     )
 

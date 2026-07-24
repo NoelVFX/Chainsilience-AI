@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   title: "Chainsilience AI — Supply Chain Risk Intelligence",
   description:
     "Transforming global supply chain signals into actionable business decisions.",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

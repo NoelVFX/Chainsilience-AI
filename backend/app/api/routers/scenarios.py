@@ -13,6 +13,7 @@ from app.schemas.domain import (
     ScenarioResponse,
     ScenarioTile,
 )
+from app.services.mitigation_scoring import MitigationScorer
 from app.services.recommendations import RecommendationService
 from app.services.scenario import ScenarioService
 
@@ -22,17 +23,27 @@ router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 @router.get("/{risk_id}", response_model=ScenarioResponse)
 def simulate(
     risk_id: int,
+    priority: str = "balanced",
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
 ) -> ScenarioResponse:
+    """Simulate mitigation options and rank them by a multi-objective score.
+
+    ``priority`` (balanced | risk | cost | recovery | financial) amplifies one
+    objective in the U(a) utility; the best-fit option is returned first.
+    """
     risk = RiskRepository(session).get(risk_id)
     if not risk or risk.company_id != company_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Risk not found")
+
+    priority = priority if priority in MitigationScorer.PRIORITIES else "balanced"
     scenarios = ScenarioService().simulate(risk)
+    ranked = MitigationScorer().rank(scenarios, priority)
     return ScenarioResponse(
         risk_id=risk.id,
         risk_title=risk.headline or risk.title,
-        scenarios=[ScenarioTile(**s) for s in scenarios],
+        scenarios=[ScenarioTile(**s) for s in ranked],
+        priority=priority,
     )
 
 

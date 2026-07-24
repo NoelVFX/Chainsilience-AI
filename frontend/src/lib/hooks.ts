@@ -74,11 +74,14 @@ export function useRiskDetail(riskId: number) {
   });
 }
 
-export function useScenarios(riskId: number) {
+export function useScenarios(riskId: number, priority = "balanced") {
   return useQuery({
-    queryKey: ["scenarios", riskId],
-    queryFn: () => api.get<ScenarioResponse>(`/scenarios/${riskId}`),
+    queryKey: ["scenarios", riskId, priority],
+    queryFn: () =>
+      api.get<ScenarioResponse>(`/scenarios/${riskId}?priority=${priority}`),
     enabled: Number.isFinite(riskId),
+    // Keep showing the current ranking while a new priority re-fetches.
+    placeholderData: (prev) => prev,
   });
 }
 

@@ -43,9 +43,9 @@ class ImpactService:
         ) or 12
 
         tiles = [
-            {"label": "Inventory Depletion", "value": f"{coverage} days"},
+            {"label": "Inventory Coverage", "value": f"{coverage} days"},
             {"label": "Production Delay", "value": f"{delay_low}–{delay_high} days"},
-            {"label": "Revenue Loss", "value": _fmt_money(revenue_at_risk)},
+            {"label": "Revenue at Risk", "value": _fmt_money(revenue_at_risk)},
             {"label": "Affected Products", "value": str(max(1, len(products)))},
             {"label": "Affected Customers", "value": str(customers)},
             {"label": "Recovery Time", "value": f"{recovery_weeks} weeks"},

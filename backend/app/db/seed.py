@@ -160,9 +160,9 @@ def _seed_intelligence(session: Session, company_id: int) -> Risk:
                 {"label": "Geographic Exposure", "value": 76},
             ],
             impact=[
-                {"label": "Inventory Depletion", "value": "14 days"},
+                {"label": "Inventory Coverage", "value": "14 days"},
                 {"label": "Production Delay", "value": "9–12 days"},
-                {"label": "Revenue Loss", "value": "$2.4M"},
+                {"label": "Revenue at Risk", "value": "$2.4M"},
                 {"label": "Affected Products", "value": "3"},
                 {"label": "Affected Customers", "value": "18"},
                 {"label": "Recovery Time", "value": "6 weeks"},
