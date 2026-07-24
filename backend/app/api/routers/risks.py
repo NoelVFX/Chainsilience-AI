@@ -58,10 +58,16 @@ def risk_detail(
 ) -> RiskDetailResponse:
     r = _load_risk(risk_id, company_id, session)
 
-    # Predicted-impact tiles + a Monte Carlo production-stoppage probability
-    # (10k simulated scenarios over the company's own risk metrics), unless the
-    # risk already carries one.
-    impact = list(r.impact or [])
+    # Normalise legacy tile labels stored in older risk records / AI output, so
+    # renamed metrics show correctly regardless of what's persisted.
+    label_map = {"Revenue Loss": "Revenue at Risk", "Inventory Depletion": "Inventory Coverage"}
+    impact = [
+        {**t, "label": label_map.get(t.get("label", ""), t.get("label", ""))}
+        for t in (r.impact or [])
+    ]
+
+    # Append a Monte Carlo production-stoppage probability (10k simulated
+    # scenarios over the company's own risk metrics), unless one is present.
     if not any(t.get("label") == "Production Stoppage" for t in impact):
         impact.append(MonteCarloService().stoppage_tile(r))
 
