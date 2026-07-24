@@ -9,7 +9,7 @@ from app.core.constants import severity_color, severity_label
 from app.core.timeutil import relative_time
 from app.db.session import get_session
 from app.models.entities import Risk
-from app.repositories import EmailDraftRepository, RiskRepository
+from app.repositories import EmailDraftRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
     EmailRequest,
     EmailResponse,
@@ -67,9 +67,16 @@ def risk_detail(
     ]
 
     # Append a Monte Carlo production-stoppage probability (10k simulated
-    # scenarios over the company's own risk metrics), unless one is present.
+    # scenarios), unless one is present. Inputs come from this risk's stored
+    # metrics, falling back to the supplier's real Digital Twin attributes so
+    # each disruption yields its own probability.
     if not any(t.get("label") == "Production Stoppage" for t in impact):
-        impact.append(MonteCarloService().stoppage_tile(r))
+        mc = MonteCarloService()
+        twin = TwinRepository(session)
+        supplier_attrs, coverage_hint = mc.twin_context(
+            twin.nodes(company_id), twin.edges(company_id), r.supplier
+        )
+        impact.append(mc.stoppage_tile(r, supplier_attrs, coverage_hint))
 
     return RiskDetailResponse(
         id=r.id, title=r.headline or r.title, headline=r.headline or r.title,

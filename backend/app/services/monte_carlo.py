@@ -41,25 +41,78 @@ def _last_num(text: str) -> float | None:
 
 
 class MonteCarloService:
-    def inputs_from_risk(self, risk: Risk) -> MonteCarloInputs:
+    @staticmethod
+    def twin_context(nodes, edges, supplier_name: str) -> tuple[dict, float | None]:
+        """Resolve real Digital Twin data for a risk's supplier.
+
+        Returns (supplier_attributes, coverage_days_of_a_component_it_supplies).
+        """
+        supplier = next(
+            (n for n in nodes
+             if n.type.value == "supplier" and n.name.lower() == (supplier_name or "").lower()),
+            None,
+        )
+        if supplier is None:
+            return {}, None
+        supplied = {e.target_key for e in edges
+                    if e.source_key == supplier.key and e.type.value == "supplies"}
+        coverages = [
+            float(n.attributes.get("coverage_days"))
+            for n in nodes
+            if n.key in supplied and n.attributes.get("coverage_days") is not None
+        ]
+        # The tightest component runway is what actually constrains production.
+        return dict(supplier.attributes or {}), (min(coverages) if coverages else None)
+
+    def inputs_from_risk(
+        self,
+        risk: Risk,
+        supplier_attrs: dict | None = None,
+        coverage_hint: float | None = None,
+    ) -> MonteCarloInputs:
+        """Build simulation inputs, preferring the most specific data available:
+        stored impact tiles/factors → the Digital Twin → the risk's own score.
+        """
         tiles = {t.get("label", ""): t.get("value", "") for t in (risk.impact or [])}
         factors = {f.get("label", ""): f.get("value", 0) for f in (risk.factors or [])}
+        attrs = supplier_attrs or {}
+        score = max(0, min(100, int(risk.score or 0)))
 
-        coverage = _num(tiles.get("Inventory Coverage") or tiles.get("Inventory Depletion") or "")
-        # Recovery may be given in weeks or days.
+        # --- disruption duration -------------------------------------------
         rec_raw = tiles.get("Recovery Time", "")
         recovery = _num(rec_raw)
         if recovery is not None and "week" in rec_raw.lower():
             recovery *= 7
-        delay = _last_num(tiles.get("Production Delay", ""))  # upper bound of the range
-        # "Alternative Suppliers" factor is read as availability adequacy (0-100).
-        alt = factors.get("Alternative Suppliers")
-        alt_availability = (float(alt) / 100.0) if alt is not None else 0.4
+        if recovery is None:
+            # Severity drives how long the disruption lasts (7–56 days).
+            recovery = 7.0 + (score / 100.0) * 49.0
+
+        # --- inventory runway ------------------------------------------------
+        coverage = _num(tiles.get("Inventory Coverage") or tiles.get("Inventory Depletion") or "")
+        if coverage is None:
+            coverage = coverage_hint if coverage_hint is not None else 21.0
+
+        # --- production delay already observed -------------------------------
+        delay = _last_num(tiles.get("Production Delay", ""))
+        if delay is None:
+            delay = max(2.0, recovery * 0.25)
+
+        # --- alternate supplier availability ---------------------------------
+        alt_factor = factors.get("Alternative Suppliers")
+        if alt_factor is not None:
+            # Factor is read as availability adequacy (0-100).
+            alt_availability = float(alt_factor) / 100.0
+        elif attrs.get("alt_suppliers") is not None:
+            # Real twin data: each qualified alternate materially improves odds.
+            alt_availability = 0.05 + min(0.85, float(attrs["alt_suppliers"]) * 0.30)
+        else:
+            # Last resort: a more severe risk implies fewer usable alternates.
+            alt_availability = max(0.05, 1.0 - score / 100.0)
 
         return MonteCarloInputs(
-            coverage_days=coverage if coverage is not None else 21.0,
-            recovery_days=recovery if recovery is not None else 30.0,
-            delay_days=delay if delay is not None else 7.0,
+            coverage_days=coverage,
+            recovery_days=recovery,
+            delay_days=delay,
             alt_availability=max(0.0, min(1.0, alt_availability)),
         )
 
@@ -91,7 +144,13 @@ class MonteCarloService:
 
         return stops / iterations
 
-    def stoppage_tile(self, risk: Risk, iterations: int = DEFAULT_ITERATIONS) -> dict:
-        params = self.inputs_from_risk(risk)
+    def stoppage_tile(
+        self,
+        risk: Risk,
+        supplier_attrs: dict | None = None,
+        coverage_hint: float | None = None,
+        iterations: int = DEFAULT_ITERATIONS,
+    ) -> dict:
+        params = self.inputs_from_risk(risk, supplier_attrs, coverage_hint)
         prob = self.stoppage_probability(params, iterations=iterations, seed=(risk.id or 0) + 7)
         return {"label": "Production Stoppage", "value": f"{round(prob * 100)}%"}
