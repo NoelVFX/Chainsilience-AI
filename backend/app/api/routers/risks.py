@@ -9,7 +9,7 @@ from app.core.constants import severity_color, severity_label
 from app.core.timeutil import relative_time
 from app.db.session import get_session
 from app.models.entities import Risk
-from app.repositories import EmailDraftRepository, RiskRepository, TwinRepository
+from app.repositories import EmailDraftRepository, EventRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
     EmailRequest,
     EmailResponse,
@@ -66,17 +66,21 @@ def risk_detail(
         for t in (r.impact or [])
     ]
 
-    # Append a Monte Carlo production-stoppage probability (10k simulated
-    # scenarios), unless one is present. Inputs come from this risk's stored
-    # metrics, falling back to the supplier's real Digital Twin attributes so
-    # each disruption yields its own probability.
-    if not any(t.get("label") == "Production Stoppage" for t in impact):
-        mc = MonteCarloService()
-        twin = TwinRepository(session)
-        supplier_attrs, coverage_hint = mc.twin_context(
-            twin.nodes(company_id), twin.edges(company_id), r.supplier
-        )
-        impact.append(mc.stoppage_tile(r, supplier_attrs, coverage_hint))
+    # Production-stoppage probability is ALWAYS computed by our Monte Carlo (10k
+    # scenarios) — never trusted from stored data or the LLM — so drop any
+    # existing tile and append a freshly simulated one. Inputs come from this
+    # risk's metrics, the supplier's real Digital Twin attributes, and the
+    # disruption's event type, so each risk yields its own probability.
+    impact = [t for t in impact if t.get("label") != "Production Stoppage"]
+    mc = MonteCarloService()
+    twin = TwinRepository(session)
+    supplier_attrs, coverage_hint = mc.twin_context(
+        twin.nodes(company_id), twin.edges(company_id), r.supplier
+    )
+    event = EventRepository(session).get(r.event_id) if r.event_id else None
+    impact.append(mc.stoppage_tile(
+        r, supplier_attrs, coverage_hint, event_type=(event.type if event else None)
+    ))
 
     return RiskDetailResponse(
         id=r.id, title=r.headline or r.title, headline=r.headline or r.title,

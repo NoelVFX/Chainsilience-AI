@@ -22,12 +22,31 @@ from app.models.entities import Risk
 DEFAULT_ITERATIONS = 10_000
 
 
+# Per-event-type profile: how long the disruption tends to last (multiplier on
+# the severity-derived baseline) and how physically it halts a production line
+# (hard_stop=1.0 stops lines; price/commodity shocks raise cost, rarely stop).
+_EVENT_PROFILE: dict[str, tuple[float, float]] = {
+    "earthquake": (1.7, 1.0),
+    "conflict": (1.9, 1.0),
+    "factory_fire": (1.5, 1.0),
+    "cyberattack": (1.0, 0.85),
+    "export_restriction": (1.3, 0.9),
+    "strike": (0.9, 0.95),
+    "port_congestion": (0.8, 0.8),
+    "weather": (0.7, 0.75),
+    "commodity_price": (0.5, 0.45),
+    "fuel_price": (0.4, 0.35),
+    "disruption": (1.0, 0.9),
+}
+
+
 @dataclass
 class MonteCarloInputs:
     coverage_days: float       # inventory runway (days of production)
     recovery_days: float       # expected disruption / supplier recovery duration
     delay_days: float          # observed production delay so far
     alt_availability: float    # 0-1 probability a qualified alternate exists
+    hard_stop: float = 1.0     # how physically the event halts a line (0-1)
 
 
 def _num(text: str) -> float | None:
@@ -69,42 +88,47 @@ class MonteCarloService:
         risk: Risk,
         supplier_attrs: dict | None = None,
         coverage_hint: float | None = None,
+        event_type: str | None = None,
     ) -> MonteCarloInputs:
         """Build simulation inputs, preferring the most specific data available:
-        stored impact tiles/factors → the Digital Twin → the risk's own score.
+        stored impact tiles/factors → the Digital Twin → the risk's own score,
+        modulated by the disruption's event type.
         """
         tiles = {t.get("label", ""): t.get("value", "") for t in (risk.impact or [])}
         factors = {f.get("label", ""): f.get("value", 0) for f in (risk.factors or [])}
         attrs = supplier_attrs or {}
         score = max(0, min(100, int(risk.score or 0)))
+        dur_mult, hard_stop = _EVENT_PROFILE.get((event_type or "").lower(), (1.0, 0.9))
 
-        # --- disruption duration -------------------------------------------
+        # --- disruption duration (only trust day/week values, not %) --------
         rec_raw = tiles.get("Recovery Time", "")
-        recovery = _num(rec_raw)
-        if recovery is not None and "week" in rec_raw.lower():
-            recovery *= 7
+        recovery = None
+        if "day" in rec_raw.lower() or "week" in rec_raw.lower():
+            recovery = _num(rec_raw)
+            if recovery is not None and "week" in rec_raw.lower():
+                recovery *= 7
         if recovery is None:
-            # Severity drives how long the disruption lasts (7–56 days).
-            recovery = 7.0 + (score / 100.0) * 49.0
+            # Severity + event type drive how long the disruption lasts.
+            recovery = (7.0 + (score / 100.0) * 49.0) * dur_mult
 
         # --- inventory runway ------------------------------------------------
-        coverage = _num(tiles.get("Inventory Coverage") or tiles.get("Inventory Depletion") or "")
+        cov_raw = tiles.get("Inventory Coverage") or tiles.get("Inventory Depletion") or ""
+        coverage = _num(cov_raw) if "day" in cov_raw.lower() else None
         if coverage is None:
             coverage = coverage_hint if coverage_hint is not None else 21.0
 
         # --- production delay already observed -------------------------------
-        delay = _last_num(tiles.get("Production Delay", ""))
+        delay_raw = tiles.get("Production Delay", "")
+        delay = _last_num(delay_raw) if "day" in delay_raw.lower() else None
         if delay is None:
             delay = max(2.0, recovery * 0.25)
 
         # --- alternate supplier availability ---------------------------------
-        alt_factor = factors.get("Alternative Suppliers")
-        if alt_factor is not None:
-            # Factor is read as availability adequacy (0-100).
-            alt_availability = float(alt_factor) / 100.0
-        elif attrs.get("alt_suppliers") is not None:
+        if attrs.get("alt_suppliers") is not None:
             # Real twin data: each qualified alternate materially improves odds.
             alt_availability = 0.05 + min(0.85, float(attrs["alt_suppliers"]) * 0.30)
+        elif isinstance(factors.get("Alternative Suppliers"), (int, float)):
+            alt_availability = float(factors["Alternative Suppliers"]) / 100.0
         else:
             # Last resort: a more severe risk implies fewer usable alternates.
             alt_availability = max(0.05, 1.0 - score / 100.0)
@@ -114,6 +138,7 @@ class MonteCarloService:
             recovery_days=recovery,
             delay_days=delay,
             alt_availability=max(0.0, min(1.0, alt_availability)),
+            hard_stop=hard_stop,
         )
 
     def stoppage_probability(
@@ -140,7 +165,9 @@ class MonteCarloService:
                 alt_lead = max(0.0, rng.gauss(cov_mu * 1.1, cov_mu * 0.35))
                 if alt_lead <= coverage:
                     continue
-            stops += 1
+            # The event must also physically halt the line (price shocks rarely do).
+            if rng.random() <= params.hard_stop:
+                stops += 1
 
         return stops / iterations
 
@@ -149,8 +176,9 @@ class MonteCarloService:
         risk: Risk,
         supplier_attrs: dict | None = None,
         coverage_hint: float | None = None,
+        event_type: str | None = None,
         iterations: int = DEFAULT_ITERATIONS,
     ) -> dict:
-        params = self.inputs_from_risk(risk, supplier_attrs, coverage_hint)
+        params = self.inputs_from_risk(risk, supplier_attrs, coverage_hint, event_type)
         prob = self.stoppage_probability(params, iterations=iterations, seed=(risk.id or 0) + 7)
         return {"label": "Production Stoppage", "value": f"{round(prob * 100)}%"}
