@@ -145,8 +145,8 @@ function SimulatorInner() {
       </Stagger>
 
       <p className="mb-6 -mt-2 text-[11px] text-muted/70">
-        Options ranked by a deterministic multi-objective score U(a) = βS·Service
-        + βF·NetFinancialImpact + βR·ReducedRisk − βI·ImplementationCost, with the
+        Options ranked by a deterministic multi-objective score U(a) = βS·ServiceRecovery
+        + βF·NetFinancialImpact + βR·ReducedRisk, with the
         chosen priority weighted highest. #1 (green) is the best fit.
       </p>
 

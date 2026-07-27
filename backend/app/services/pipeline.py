@@ -28,7 +28,8 @@ from app.repositories import (
     RiskRepository,
     TwinRepository,
 )
-from app.services.agents.gatekeeper import GatekeeperAgent
+from app.services.agents.relevance import RelevanceAgent, build_profile
+from app.services.agents.verifier import VerifierAgent
 from app.services.digital_twin import DigitalTwinService
 from app.services.event_extraction import EventExtractionService
 from app.services.impact import ImpactService
@@ -47,18 +48,22 @@ class PipelineResult:
     risk: Risk | None
     actions: list[Action]
     matched: bool
-    filtered: bool = False  # dropped by the gatekeeper agent
+    filtered: bool = False  # dropped by an agent-layer filter
     reason: str = ""
+    filter_stage: str = ""  # "verifier" | "relevance" | "match"
 
 
 class IntelligencePipeline:
-    def __init__(self, session) -> None:
+    def __init__(self, session, company=None) -> None:
+        self.session = session
+        self.company = company
         self.news_repo = NewsRepository(session)
         self.event_repo = EventRepository(session)
         self.risk_repo = RiskRepository(session)
         self.action_repo = ActionRepository(session)
         self.twin_service = DigitalTwinService(TwinRepository(session))
-        self.gatekeeper = GatekeeperAgent()
+        self.verifier = VerifierAgent()
+        self.relevance = RelevanceAgent()
         self.extractor = EventExtractionService()
         self.matcher = MatchingService()
         self.scorer = RiskScoringService()
@@ -66,24 +71,40 @@ class IntelligencePipeline:
         self.recommender = RecommendationService(ScenarioService())
 
     def process(self, company_id: int, news: NewsItem) -> PipelineResult:
-        """Run the full pipeline for one (already-persisted) news item."""
-        # Agent layer: drop fake / irrelevant / off-topic news before it costs
-        # any downstream reasoning.
-        verdict = self.gatekeeper.review(news)
-        if not verdict.accepted:
-            logger.info("Gatekeeper dropped news %s (%s).", news.id, verdict.reason)
+        """Run the full pipeline for one (already-persisted) news item.
+
+        Agent layer (Nemotron), each with an offline fallback:
+          1. Verifier      — drop unsupported / unreliable (rumour, clickbait) news.
+          2. Relevance     — drop news that doesn't touch this company's twin paths.
+        Only news passing both is extracted, matched, scored, and impact-assessed.
+        """
+        # --- Agent 1: reliability verifier ----------------------------------
+        v = self.verifier.verify(news)
+        if not v.passed:
+            logger.info("Verifier dropped news %s (%s).", news.id, v.reason)
             return PipelineResult(news, None, None, [], matched=False,
-                                  filtered=True, reason=verdict.reason)
+                                  filtered=True, reason=v.reason, filter_stage="verifier")
+
+        graph = self.twin_service.build_graph(company_id)
+
+        # --- Agent 2: company-relevance extractor ---------------------------
+        countries = getattr(self.company, "countries", "") or ""
+        profile = build_profile(graph, countries)
+        r = self.relevance.assess(news, profile)
+        if not r.relevant:
+            logger.info("Relevance dropped news %s (%s).", news.id, r.reason)
+            return PipelineResult(news, None, None, [], matched=False,
+                                  filtered=True, reason=r.reason, filter_stage="relevance")
 
         event = self.extractor.extract(news)
         event = self.event_repo.add(event)
 
-        graph = self.twin_service.build_graph(company_id)
         match = self.matcher.match(event, graph)
-
         if match is None:
-            logger.info("Event %s not relevant to company %s — dropped.", event.id, company_id)
-            return PipelineResult(news, event, None, [], matched=False)
+            logger.info("Event %s not bound to a supplier for company %s.", event.id, company_id)
+            return PipelineResult(news, event, None, [], matched=False,
+                                  filtered=True, reason="No supplier path bound.",
+                                  filter_stage="match")
 
         coverage = self.impact._coverage_days(match, graph)  # reuse coverage calc
         result = self.scorer.score(event, match.supplier, coverage_days=coverage)

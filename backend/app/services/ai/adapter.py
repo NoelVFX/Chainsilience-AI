@@ -145,6 +145,54 @@ class AIClient:
         data = _extract_json(out or "")
         return data if isinstance(data, dict) else None
 
+    # -- Agent: reliability verifier -----------------------------------------
+    def verify_news(self, headline: str, body: str = "", source: str = "") -> dict[str, Any] | None:
+        """Judge whether a news item is supported + reliable (not rumour/spam).
+
+        Returns {reliable, supported, confidence, reason, red_flags} or None to
+        let the caller apply the rule-based fallback.
+        """
+        out = self._chat(
+            "You are a news reliability verifier for a supply-chain risk platform. "
+            "Assess whether the item is SUPPORTED (concrete, verifiable reporting of "
+            "an actual event with attributable specifics — not vague, hypothetical, "
+            "or opinion) and RELIABLE (a credible outlet; not rumour, speculation, "
+            "satire, clickbait, or an unconfirmed single-source claim). Respond ONLY "
+            "with JSON: {\"reliable\": bool, \"supported\": bool, \"confidence\": 0-1, "
+            "\"reason\": string, \"red_flags\": [string]}.",
+            f"Source: {source}\nHeadline: {headline}\n\nBody: {body}",
+            json_mode=True,
+            temperature=0.0,
+        )
+        data = _extract_json(out or "")
+        return data if isinstance(data, dict) else None
+
+    # -- Agent: company-relevance extractor ----------------------------------
+    def assess_relevance(self, headline: str, body: str, profile: dict[str, Any]) -> dict[str, Any] | None:
+        """Decide whether news is relevant to THIS company's supply-chain paths.
+
+        ``profile`` describes the company's Digital Twin (suppliers, components,
+        products, factories, countries, routes). Returns {relevant, confidence,
+        reason, matched} or None for the caller's fallback.
+        """
+        out = self._chat(
+            "You are a supply-chain relevance analyst. Given a company's supply-chain "
+            "profile and a news item, decide whether the news is RELEVANT to this "
+            "specific company — i.e. it plausibly affects one of its named suppliers, "
+            "the components/commodities it depends on, its products, its production "
+            "locations, the countries it operates in, or its logistics routes/ports. "
+            "General industry news that does not touch its paths is NOT relevant. "
+            "Respond ONLY with JSON: {\"relevant\": bool, \"confidence\": 0-1, "
+            "\"reason\": string, \"matched\": [string]} where matched lists the "
+            "specific company entities the news touches.",
+            "COMPANY SUPPLY-CHAIN PROFILE:\n" + json.dumps(profile)
+            + f"\n\nNEWS:\nHeadline: {headline}\nBody: {body}",
+            json_mode=True,
+            temperature=0.0,
+        )
+        data = _extract_json(out or "")
+        return data if isinstance(data, dict) else None
+
     # -- Module 2: entity / event extraction ---------------------------------
     def extract_event(self, headline: str, body: str = "") -> dict[str, Any]:
         out = self._chat(

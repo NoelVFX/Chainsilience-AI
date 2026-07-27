@@ -49,30 +49,35 @@ def ingest(
     recommended actions. New matched risks appear on the dashboard immediately.
     """
     from app.services.ai.adapter import ai_client
+    from app.repositories import CompanyRepository
 
     news_repo = NewsRepository(session)
-    pipeline = IntelligencePipeline(session)
+    company = CompanyRepository(session).get(company_id)
+    pipeline = IntelligencePipeline(session, company=company)
 
     collected = NewsEngine().collect()
     new_risks: list[int] = []
     matched = 0
-    filtered = 0
+    unreliable = 0  # dropped by the Verifier agent
+    irrelevant = 0  # dropped by the Relevance agent (or unbound supplier path)
     for item in collected:
         item = news_repo.add(item)
         result = pipeline.process(company_id, item)
-        if result.filtered:
-            filtered += 1
+        if result.filter_stage == "verifier":
+            unreliable += 1
+        elif result.filtered:
+            irrelevant += 1
         if result.matched and result.risk:
             matched += 1
             new_risks.append(result.risk.id)
 
-    kept = len(collected) - filtered
     msg = (
-        f"Scraped {len(collected)} headline(s); the AI gatekeeper filtered out "
-        f"{filtered} as fake/irrelevant. Of {kept} credible items, {matched} "
-        f"matched your Digital Twin and generated new risks."
+        f"Scraped {len(collected)} headline(s). The Verifier agent dropped "
+        f"{unreliable} as unreliable/unsupported; the Relevance agent dropped "
+        f"{irrelevant} as not touching your supply-chain paths. {matched} "
+        f"relevant risk(s) were generated."
     )
     return IngestResult(
-        ingested=len(collected), filtered=filtered, matched=matched,
+        ingested=len(collected), filtered=unreliable + irrelevant, matched=matched,
         new_risks=new_risks, provider=ai_client.provider, message=msg,
     )
