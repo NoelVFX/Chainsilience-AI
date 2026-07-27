@@ -7,34 +7,7 @@
  */
 export function AmbientOrbs({ variant = "app" }: { variant?: "auth" | "app" }) {
   if (variant === "auth") {
-    return (
-      <>
-        <div
-          className="orb"
-          style={{
-            top: -80,
-            left: -100,
-            width: 380,
-            height: 380,
-            background:
-              "radial-gradient(circle at 35% 35%,rgba(34,211,238,0.55),rgba(34,211,238,0) 70%)",
-            animation: "floatOrbA 9s ease-in-out infinite, hueBlur20 13s linear infinite",
-          }}
-        />
-        <div
-          className="orb"
-          style={{
-            bottom: -100,
-            right: -80,
-            width: 420,
-            height: 420,
-            background:
-              "radial-gradient(circle at 60% 40%,rgba(139,92,246,0.45),rgba(139,92,246,0) 70%)",
-            animation: "floatOrbB 11s ease-in-out infinite, hueBlur20 16s linear infinite",
-          }}
-        />
-      </>
-    );
+    return <div className="rain-bg" aria-hidden="true" />;
   }
   return (
     <>
