@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { AmbientOrbs } from "@/components/AmbientOrbs";
 import { EarthLoader } from "@/components/EarthLoader";
@@ -16,6 +16,27 @@ export default function LoginPage() {
   const login = useLogin();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // 25-zone (5×5) 3D tilt driven by pointer position — reproduces the Uiverse
+  // "kennyotsu" tracker grid without overlaying (non-blocking) hover zones, so
+  // the form stays interactive.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [tilt, setTilt] = useState<{ rx: number; ry: number } | null>(null);
+
+  function handleTilt(e: React.MouseEvent<HTMLDivElement>) {
+    const el = cardRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const col = Math.min(4, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * 5)));
+    const row = Math.min(4, Math.max(0, Math.floor(((e.clientY - r.top) / r.height) * 5)));
+    // columns → rotateY −10..+10 (step 5); rows → rotateX +20..−20 (step 10)
+    setTilt({ ry: (col - 2) * 5, rx: (2 - row) * 10 });
+  }
+
+  const resting = tilt === null;
+  const cardTransform = resting
+    ? "rotateX(0deg) rotateY(0deg)"
+    : `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`;
 
   async function handleSignIn() {
     try {
@@ -41,10 +62,16 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <FadeUp y={22} className="login-parent relative z-10 w-[400px] max-w-full">
+      <FadeUp y={22} className="l3d-scene relative z-10 w-[400px] max-w-full">
       <div
-        className="login-card rounded-panel border border-line bg-surface p-10"
-        style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(34,211,238,0.08)" }}
+        ref={cardRef}
+        onMouseMove={handleTilt}
+        onMouseLeave={() => setTilt(null)}
+        className={`l3d-card rounded-panel border border-line bg-surface p-10 ${resting ? "l3d-resting" : "l3d-active"}`}
+        style={{
+          boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(34,211,238,0.08)",
+          transform: cardTransform,
+        }}
       >
         <div className="depth">
           <Logo />

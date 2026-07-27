@@ -151,39 +151,34 @@ a:hover {
 }
 
 /* ------------------------------------------------------------------ *
- * Login card — 3D perspective tilt (rotate3d) on hover.              *
- * Flattens on focus-within so typing in the form isn't disrupted.    *
+ * Login card — granular 25-zone 3D tilt (Uiverse "kennyotsu" style).  *
+ * The tracker grid is driven by pointer position in JS (see login     *
+ * page) rather than an overlay, so the form stays fully interactive.  *
+ * Classes are scoped (l3d-*) to avoid clashing with generic names.    *
  * ------------------------------------------------------------------ */
-.login-parent {
-  perspective: 1600px;
+.l3d-scene {
+  perspective: 800px;
 }
-.login-card {
+.l3d-card {
   transform-style: preserve-3d;
-  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.6s ease;
+  /* fast while tracking a zone; the reset (mouse-leave) uses a longer ease */
+  transition: transform 125ms ease-in-out, box-shadow 300ms ease;
   will-change: transform;
 }
-.login-parent:hover .login-card {
-  transform: rotate3d(1, 1, 0, 14deg);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 70px rgba(34, 211, 238, 0.18);
+.l3d-card.l3d-resting {
+  transition: transform 700ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 300ms ease;
 }
-/* Interacting with the form → snap flat for usability. */
-.login-parent:focus-within .login-card {
-  transform: none;
+.l3d-card.l3d-active {
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5), 0 0 80px rgba(34, 211, 238, 0.18);
 }
-/* Inner elements pop toward the viewer on hover for depth. */
-.login-card .depth {
+/* Inner layers float above the card surface for parallax during tilt. */
+.l3d-card .depth {
   transform-style: preserve-3d;
-  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-}
-.login-parent:hover .login-card .depth {
   transform: translateZ(38px);
 }
-.login-parent:hover .login-card .depth-sm {
+.l3d-card .depth-sm {
+  transform-style: preserve-3d;
   transform: translateZ(20px);
-}
-.login-parent:focus-within .login-card .depth,
-.login-parent:focus-within .login-card .depth-sm {
-  transform: none;
 }
 
 /* ------------------------------------------------------------------ *
