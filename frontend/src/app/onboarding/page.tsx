@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 
 import { AmbientOrbs } from "@/components/AmbientOrbs";
 import { FadeUp } from "@/components/motion";
-import { GlobeMount } from "@/components/three/GlobeMount";
 import { ApiError, getToken } from "@/lib/api";
 import { useOnboarding, useRegister, useUploadTwinCsv } from "@/lib/hooks";
 
@@ -89,16 +88,6 @@ export default function OnboardingPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-10">
       <AmbientOrbs variant="auth" />
-
-      <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        style={{ opacity: 0.4 }}
-        aria-hidden
-      >
-        <div style={{ width: "min(760px, 94vw)", height: "min(760px, 94vw)" }}>
-          <GlobeMount points={[]} backdrop />
-        </div>
-      </div>
 
       <FadeUp y={22} className="relative z-10 w-[720px] max-w-full">
       <div

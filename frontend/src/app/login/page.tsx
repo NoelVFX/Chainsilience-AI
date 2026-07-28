@@ -7,7 +7,6 @@ import { AmbientOrbs } from "@/components/AmbientOrbs";
 import { EarthLoader } from "@/components/EarthLoader";
 import { Logo } from "@/components/Logo";
 import { FadeUp } from "@/components/motion";
-import { GlobeMount } from "@/components/three/GlobeMount";
 import { useLogin } from "@/lib/hooks";
 
 /** Screen 1 — Login. Centered card on the animated orb background. */
@@ -50,17 +49,6 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
       <AmbientOrbs variant="auth" />
-
-      {/* Decorative rotating 3D globe behind the card. */}
-      <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        style={{ opacity: 0.8 }}
-        aria-hidden
-      >
-        <div style={{ width: "min(620px, 88vw)", height: "min(620px, 88vw)" }}>
-          <GlobeMount points={[]} backdrop />
-        </div>
-      </div>
 
       <FadeUp y={22} className="l3d-scene relative z-10 w-[400px] max-w-full">
       <div
