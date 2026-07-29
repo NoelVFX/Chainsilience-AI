@@ -39,7 +39,21 @@ async function request<T>(
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  // Abort a hung request (e.g. a sleeping/cold backend) so callers get a real
+  // error + retry instead of spinning forever. 45s covers Render cold starts.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...options, headers, signal: controller.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ApiError(0, "Request timed out — the backend may be waking up. Please retry.");
+    }
+    throw new ApiError(0, "Network error — the backend is unreachable (down, cold, or CORS-blocked).");
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (res.status === 401 && typeof window !== "undefined") {
     clearToken();

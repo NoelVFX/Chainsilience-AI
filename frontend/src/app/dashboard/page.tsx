@@ -12,7 +12,7 @@ import { useDashboard, useIngestNews } from "@/lib/hooks";
 /** Screen 3 — Dashboard: KPI row, Top Risks, disruption map, news, actions. */
 export default function DashboardPage() {
   const router = useRouter();
-  const { data, isLoading } = useDashboard();
+  const { data, isLoading, isError, error, refetch, isFetching } = useDashboard();
   const ingest = useIngestNews();
 
   return (
@@ -40,7 +40,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {isLoading || !data ? (
+      {isError && !data ? (
+        <DashboardError message={(error as Error)?.message} onRetry={() => refetch()} retrying={isFetching} />
+      ) : isLoading || !data ? (
         <SkeletonDashboard />
       ) : (
         <>
@@ -160,6 +162,33 @@ export default function DashboardPage() {
         </>
       )}
     </AppShell>
+  );
+}
+
+function DashboardError({
+  message,
+  onRetry,
+  retrying,
+}: {
+  message?: string;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <div className="mx-auto mt-10 max-w-lg rounded-card border border-line bg-surface p-8 text-center">
+      <div className="text-[15px] font-bold text-danger">Couldn&apos;t reach the backend</div>
+      <p className="mt-2 text-[13px] leading-[1.6] text-muted">
+        The dashboard data request failed. On the free tier the backend sleeps
+        after inactivity and can take ~30–60s to wake — this often clears on a
+        retry. If it persists, the API is unreachable or blocked by CORS.
+      </p>
+      {message && (
+        <p className="mt-2 break-words font-mono text-[11px] text-muted/70">{message}</p>
+      )}
+      <button onClick={onRetry} disabled={retrying} className="btn-primary mt-5 px-5 py-2.5">
+        {retrying ? "Retrying…" : "Retry"}
+      </button>
+    </div>
   );
 }
 
