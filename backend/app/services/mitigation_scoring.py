@@ -87,6 +87,19 @@ class MitigationScorer:
         fin_n = _minmax(financials)  # less negative is already larger → better
         cost_n = _minmax(costs)      # higher cost = worse; subtracted below
 
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            "Mitigation ranking: priority=%s, weights=%s, "
+            "reductions=%s, costs=%s, recoveries=%s, financials=%s",
+            priority, weights, reductions, costs, recoveries, financials
+        )
+        logger.info(
+            "Normalized: risk_n=%s, service_n=%s, fin_n=%s, cost_n=%s",
+            risk_n, service_n, fin_n, cost_n
+        )
+
         utilities: list[float] = []
         for i in range(len(scenarios)):
             u = (
@@ -96,6 +109,11 @@ class MitigationScorer:
                 - weights["cost"] * cost_n[i]
             )
             utilities.append(u)
+            logger.info(
+                "Scenario %s (%s): utility=%.4f (service=%.3f, fin=%.3f, risk=%.3f, cost=%.3f)",
+                scenarios[i].get("id"), scenarios[i].get("name"), u,
+                service_n[i], fin_n[i], risk_n[i], cost_n[i]
+            )
 
         # Present a relative 0-100 fit score (best option = 100).
         score_n = _minmax(utilities)
