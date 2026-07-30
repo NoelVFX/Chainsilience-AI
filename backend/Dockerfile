@@ -8,15 +8,15 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Install dependencies first for better layer caching.
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
 # Copy knowledge base documents (PDFs, DOCX, MD, TXT) for RAG ingestion
-COPY ../*.pdf ./knowledge/
-COPY ../*.docx ./knowledge/
-COPY ../*.md ./knowledge/
+COPY *.pdf ./knowledge/
+COPY *.docx ./knowledge/
+COPY *.md ./knowledge/
 
-COPY app ./app
+COPY backend/app ./app
 
 EXPOSE 8000
 
