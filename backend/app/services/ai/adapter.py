@@ -56,31 +56,44 @@ class AIClient:
         self._init_client()
 
     def _init_client(self) -> None:
-        # Prefer NVIDIA Nemotron, then OpenAI.
+        # Try NVIDIA Nemotron first, then fall back to OpenAI.
+        tried_nvidia = False
         if settings.nvidia_api_key:
-            provider, key, base_url, model = (
-                "nvidia", settings.nvidia_api_key, settings.nvidia_base_url, settings.nvidia_model,
-            )
-        elif settings.openai_api_key:
-            provider, key, base_url, model = (
-                "openai", settings.openai_api_key, settings.openai_base_url, settings.openai_model,
-            )
-        else:
-            logger.info("AIClient: no API key set — using deterministic fallbacks.")
-            return
+            tried_nvidia = True
+            try:
+                from openai import OpenAI
 
-        try:  # pragma: no cover - needs optional dep + network
-            from openai import OpenAI
+                self._client = OpenAI(
+                    api_key=settings.nvidia_api_key,
+                    base_url=settings.nvidia_base_url,
+                    timeout=settings.ai_request_timeout,
+                    max_retries=1,
+                )
+                self.provider = "nvidia"
+                self.model = settings.nvidia_model
+                logger.info("AIClient: NVIDIA enabled (model=%s).", self.model)
+                return
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("AIClient: NVIDIA init failed (%s); trying OpenAI...", exc)
 
-            self._client = OpenAI(
-                api_key=key, base_url=base_url,
-                timeout=settings.ai_request_timeout, max_retries=1,
-            )
-            self.provider = provider
-            self.model = model
-            logger.info("AIClient: %s enabled (model=%s).", provider, model)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("AIClient: %s init failed (%s); using fallback.", provider, exc)
+        if settings.openai_api_key:
+            try:
+                from openai import OpenAI
+
+                self._client = OpenAI(
+                    api_key=settings.openai_api_key,
+                    base_url=settings.openai_base_url,
+                    timeout=settings.ai_request_timeout,
+                    max_retries=1,
+                )
+                self.provider = "openai"
+                self.model = settings.openai_model
+                logger.info("AIClient: OpenAI enabled (model=%s).", self.model)
+                return
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("AIClient: OpenAI init failed (%s); using fallback.", exc)
+
+        logger.info("AIClient: no working provider — using deterministic fallbacks.")
 
     @property
     def live(self) -> bool:
