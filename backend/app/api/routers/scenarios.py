@@ -7,7 +7,7 @@ from sqlmodel import Session
 from app.api.deps import get_current_company_id
 from app.db.session import get_session
 from app.models.entities import Action, ActionStatus, Severity
-from app.repositories import ActionRepository, RiskRepository
+from app.repositories import ActionRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
     ApproveScenarioRequest,
     ScenarioResponse,
@@ -37,7 +37,13 @@ def simulate(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Risk not found")
 
     priority = priority if priority in MitigationScorer.PRIORITIES else "balanced"
-    scenarios = ScenarioService().simulate(risk)
+    scenario_service = ScenarioService()
+    twin_repo = TwinRepository(session)
+    scenarios = scenario_service.simulate(
+        risk,
+        twin_nodes=twin_repo.nodes(company_id),
+        twin_edges=twin_repo.edges(company_id),
+    )
     ranked = MitigationScorer().rank(scenarios, priority)
     return ScenarioResponse(
         risk_id=risk.id,
@@ -66,7 +72,14 @@ def approve(
     if not risk or risk.company_id != company_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Risk not found")
 
-    scenario = ScenarioService().get(risk, payload.scenario_id)
+    scenario_service = ScenarioService()
+    twin_repo = TwinRepository(session)
+    scenario = scenario_service.get(
+        risk,
+        payload.scenario_id,
+        twin_nodes=twin_repo.nodes(company_id),
+        twin_edges=twin_repo.edges(company_id),
+    )
     if not scenario:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown scenario")
 
@@ -78,17 +91,21 @@ def approve(
         return {
             "approved": False,
             "status": "already_approved",
-            "message": f"“{scenario['name']}” is already approved and in the Action Center.",
+            "message": f"\"{scenario['name']}\" is already approved and in the Action Center.",
         }
 
     action = repo.add(
         Action(
-            company_id=company_id, risk_id=risk.id, title=title,
-            owner="Procurement", deadline="",
+            company_id=company_id,
+            risk_id=risk.id,
+            title=title,
+            owner="Procurement",
+            deadline="",
             priority=Severity.CRITICAL if risk.severity == Severity.CRITICAL else Severity.HIGH,
             status=ActionStatus.APPROVED,
             estimated_benefit=f"{scenario['risk_reduction']} risk reduction",
-            estimated_cost=scenario["cost"], department="Procurement",
+            estimated_cost=scenario["cost"],
+            department="Procurement",
         )
     )
 
@@ -98,11 +115,16 @@ def approve(
     for rec in RecommendationService(ScenarioService()).recommend(risk):
         saved = repo.add_unique(
             Action(
-                company_id=company_id, risk_id=risk.id, title=rec.title,
-                owner=rec.department, deadline=rec.deadline, priority=rec.priority,
+                company_id=company_id,
+                risk_id=risk.id,
+                title=rec.title,
+                owner=rec.department,
+                deadline=rec.deadline,
+                priority=rec.priority,
                 status=ActionStatus.RECOMMENDED,
                 estimated_benefit=rec.estimated_benefit,
-                estimated_cost=rec.estimated_cost, department=rec.department,
+                estimated_cost=rec.estimated_cost,
+                department=rec.department,
             )
         )
         if saved:

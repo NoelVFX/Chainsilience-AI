@@ -12,6 +12,14 @@ python-dateutil==2.9.0.post0
 httpx==0.28.1
 feedparser==6.0.11
 # Postgres driver (used when DATABASE_URL points at postgres; SQLite works out of the box)
-psycopg[binary]==3.2.3
+psycopg[binary]==3.3.4
 # Optional: real LLM calls. The app runs fully without it (deterministic fallback).
 openai==1.59.6
+# RAG / Knowledge Base
+faiss-cpu==1.14.3
+sentence-transformers==3.1.0
+pdfplumber==0.11.4
+python-docx==1.1.2
+markdown==3.6
+numpy==1.26.4
+beautifulsoup4==4.12.3

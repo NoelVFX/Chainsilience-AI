@@ -24,6 +24,7 @@ from app.api.routers import (
     dashboard,
     feedback,
     news,
+    rag,
     reports,
     risks,
     scenarios,
@@ -76,5 +77,5 @@ def health() -> dict:
 
 # --- Versioned API ----------------------------------------------------------
 _prefix = settings.api_v1_prefix
-for module in (auth, company, dashboard, risks, scenarios, actions, news, feedback, reports):
+for module in (auth, company, dashboard, risks, scenarios, actions, news, feedback, reports, rag):
     app.include_router(module.router, prefix=_prefix)

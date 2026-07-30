@@ -68,6 +68,9 @@ def _apply_mitigation_effect(session: Session, action: Action) -> None:
     5% improvement (any completed mitigation helps a little). Severity is
     re-banded from the new score, and the change is noted in the reasoning so
     the AI narrative stays consistent with the numbers.
+
+    Also updates impact tiles and factors so Monte Carlo reflects the improved
+    situation (lower stoppage probability on next risk detail view).
     """
     if not action.risk_id:
         return
@@ -82,6 +85,94 @@ def _apply_mitigation_effect(session: Session, action: Action) -> None:
     risk.score = max(0, round(risk.score * (1 - pct)))
     risk.revenue_at_risk = max(0.0, risk.revenue_at_risk * (1 - pct))
     risk.severity = RiskScoringService._band(risk.score)
+
+    # --- Update impact tiles to reflect mitigation ---
+    # Inventory Coverage: mitigation buys time → effective coverage increases
+    # Recovery Time: mitigation accelerates recovery → weeks decrease
+    # Production Delay: mitigation reduces delay → days decrease
+    # Affected Products/Customers: mitigation contains spread → may decrease
+    impact = risk.impact or []
+    for tile in impact:
+        label = tile.get("label", "")
+        val = tile.get("value", "")
+        if "Inventory Coverage" in label:
+            # Extract days, increase by mitigation factor
+            m2 = re.search(r"(\d+(?:\.\d+)?)", val)
+            if m2:
+                days = float(m2.group(1))
+                # Mitigation improves effective coverage (e.g., air freight adds buffer)
+                new_days = round(days * (1 + pct * 0.5))
+                tile["value"] = f"{new_days} days"
+        elif "Recovery Time" in label:
+            m2 = re.search(r"(\d+(?:\.\d+)?)", val)
+            if m2:
+                weeks = float(m2.group(1))
+                new_weeks = max(1, round(weeks * (1 - pct * 0.7)))
+                tile["value"] = f"{new_weeks} weeks"
+        elif "Production Delay" in label:
+            m2 = re.search(r"(\d+(?:\.\d+)?)", val)
+            if m2:
+                days = float(m2.group(1))
+                new_days = max(1, round(days * (1 - pct * 0.8)))
+                # Keep range format if present
+                if "–" in val or "-" in val:
+                    m3 = re.search(r"(\d+)\D+(\d+)", val)
+                    if m3:
+                        low, high = int(m3.group(1)), int(m3.group(2))
+                        new_low = max(1, round(low * (1 - pct * 0.8)))
+                        new_high = max(new_low, round(high * (1 - pct * 0.8)))
+                        tile["value"] = f"{new_low}–{new_high} days"
+                    else:
+                        tile["value"] = f"{new_days} days"
+                else:
+                    tile["value"] = f"{new_days} days"
+        elif "Affected Products" in label:
+            m2 = re.search(r"(\d+)", val)
+            if m2:
+                prods = int(m2.group(1))
+                new_prods = max(1, round(prods * (1 - pct * 0.5)))
+                tile["value"] = str(new_prods)
+        elif "Affected Customers" in label:
+            m2 = re.search(r"(\d+)", val)
+            if m2:
+                custs = int(m2.group(1))
+                new_custs = max(1, round(custs * (1 - pct * 0.5)))
+                tile["value"] = str(new_custs)
+        elif "Revenue at Risk" in label:
+            # Already updated via risk.revenue_at_risk; keep tile in sync
+            from app.services.dashboard import _fmt_money
+            tile["value"] = _fmt_money(risk.revenue_at_risk)
+
+    # --- Update factors to reflect mitigation ---
+    # Alternative Suppliers: if strategy was "Switch Supplier", increase count
+    # Supplier Dependency: mitigation reduces effective dependency
+    # Inventory Coverage factor: recalculate from updated tile
+    factors = risk.factors or []
+    for f in factors:
+        label = f.get("label", "")
+        if "Alternative Suppliers" in label:
+            # If we switched supplier or qualified alternates, bump the count
+            current = f.get("value", 0)
+            if "switch" in (action.title or "").lower():
+                f["value"] = min(100, current + int(20 * pct * 100))  # 0-100 scale
+        elif "Inventory Coverage" in label:
+            # Recalculate from updated impact tile
+            for tile in impact:
+                if "Inventory Coverage" in tile.get("label", ""):
+                    m2 = re.search(r"(\d+(?:\.\d+)?)", tile.get("value", ""))
+                    if m2:
+                        days = float(m2.group(1))
+                        # Factor: less coverage = higher risk contribution (0-100)
+                        f["value"] = max(0, 100 - min(days, 60) * 100 // 60)
+                    break
+        elif "Supplier Dependency" in label:
+            # Mitigation reduces effective dependency
+            current = f.get("value", 0)
+            f["value"] = max(10, round(current * (1 - pct * 0.5)))
+
+    risk.factors = factors
+    risk.impact = impact
+
     note = (
         f" [Mitigation completed: “{action.title}” — risk reduced by "
         f"{int(pct * 100)}% (score {old_score}→{risk.score})]"
