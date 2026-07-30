@@ -14,6 +14,7 @@ import type {
   DashboardResponse,
   EmailResponse,
   IngestResult,
+  RiskCard,
   RiskDetail,
   ScenarioResponse,
   TokenResponse,
@@ -148,13 +149,9 @@ export function useSaveEmailDraft(riskId: number) {
   });
 }
 
-export function useIngestNews() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => api.post<IngestResult>("/news/ingest"),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["actions"] });
-    },
+export function useRisks() {
+  return useQuery({
+    queryKey: ["risks"],
+    queryFn: () => api.get<RiskCard[]>("/risks"),
   });
 }

@@ -116,6 +116,10 @@ class AIClient:
             logger.warning("AIClient: chat failed (%s); using fallback.", exc)
             return None
 
+    def _extract_json(self, text: str) -> Any | None:
+        """Instance wrapper for module-level _extract_json."""
+        return _extract_json(text)
+
     # -- Module 1: summarisation ---------------------------------------------
     def summarize(self, headline: str, body: str = "") -> str:
         out = self._chat(
