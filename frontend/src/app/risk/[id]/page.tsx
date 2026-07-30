@@ -6,15 +6,19 @@ import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { EmailModal } from "@/components/EmailModal";
 import { AnimatedBar, FadeUp } from "@/components/motion";
-import { useRiskDetail } from "@/lib/hooks";
+import { useRiskDetail, useRisks } from "@/lib/hooks";
 
 /** Screen 4 — Risk Detail: breakdown, reasoning, event chain, impact. */
 export default function RiskDetailPage() {
   const params = useParams();
   const router = useRouter();
   const riskId = Number(params.id);
-  const { data, isLoading } = useRiskDetail(riskId);
+  const { data, isLoading, isError } = useRiskDetail(riskId);
+  const { data: risks } = useRisks();
   const [emailOpen, setEmailOpen] = useState(false);
+
+  // If no valid riskId or risk not found, show the risk list
+  const showRiskList = !riskId || isError || (data === undefined && !isLoading);
 
   return (
     <AppShell>
@@ -25,7 +29,46 @@ export default function RiskDetailPage() {
         ← Back to Dashboard
       </button>
 
-      {isLoading || !data ? (
+      {showRiskList ? (
+        // Show list of active disruptions
+        <>
+          <h1 className="mb-6 mt-2 text-[22px] font-extrabold text-text">Active Disruptions</h1>
+          <p className="mb-4 text-[13px] text-muted">
+            Select a disruption to view detailed risk analysis
+          </p>
+          <div className="card">
+            <div className="flex flex-col">
+              {risks?.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => router.push(`/risk/${r.id}`)}
+                  className="row-hover grid grid-cols-[8px_minmax(0,1fr)_92px] items-center gap-3.5 rounded-control border-b border-line px-2 py-3.5"
+                >
+                  <span
+                    style={{ width: 8, height: 8, borderRadius: "50%", background: r.severity_color }}
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate text-[13.5px] font-semibold text-text">{r.title}</div>
+                    <div className="mt-0.5 truncate text-xs text-muted">
+                      {r.supplier} · {r.time}
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <div className="text-[12.5px] font-bold" style={{ color: r.severity_color }}>
+                      {r.severity}
+                    </div>
+                    <div className="mt-[3px] text-[11px] text-muted">{r.impact}</div>
+                  </div>
+                </button>
+              )) ?? (
+                <div className="py-8 text-center text-muted">
+                  No active disruptions
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      ) : isLoading || !data ? (
         <div className="h-64 animate-pulse rounded-card border border-line bg-surface" />
       ) : (
         <>

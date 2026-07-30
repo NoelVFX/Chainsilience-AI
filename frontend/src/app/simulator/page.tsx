@@ -30,7 +30,7 @@ const PRIORITIES = [
 function SimulatorInner() {
   const router = useRouter();
   const search = useSearchParams();
-  const riskId = Number(search.get("risk") ?? 1);
+  const riskId = Number(search.get("risk") ?? 0);
   const [priority, setPriority] = useState("balanced");
   const { data, isLoading } = useScenarios(riskId, priority);
   const approve = useApproveScenario(riskId);
@@ -45,6 +45,26 @@ function SimulatorInner() {
       );
     }
   }, [data]);
+
+  // No risk selected - show landing page
+  if (!riskId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="mb-6 text-[22px] font-extrabold text-text">
+          No Disruption Selected
+        </div>
+        <p className="mb-6 max-w-md text-[13px] text-muted">
+          Please select a risk from the Risk Details page to run the scenario simulator.
+        </p>
+        <button
+          onClick={() => router.push("/risk")}
+          className="btn-primary px-6 py-3"
+        >
+          Go to Risk Details
+        </button>
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return <div className="h-64 animate-pulse rounded-card border border-line bg-surface" />;

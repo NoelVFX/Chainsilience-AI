@@ -35,12 +35,36 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create schema and seed the demo dataset."""
+    """Startup: create schema, seed demo data, ingest knowledge base."""
     logger.info("Starting %s (env=%s)", settings.app_name, settings.environment)
     init_db()
     if settings.seed_on_startup:
         with Session(engine) as session:
             seed_if_empty(session)
+    
+    # Warm up RAG + AI on startup
+    try:
+        from app.services.rag import get_rag_service
+        from app.services.ai.adapter import ai_client
+        rag = get_rag_service()
+        rag.initialize()
+        
+        # Auto-ingest knowledge base if empty
+        if len(rag.chunks) == 0:
+            from pathlib import Path
+            knowledge_dir = Path("/app/knowledge")
+            exts = {".pdf", ".docx", ".md", ".txt"}
+            paths = [p for p in knowledge_dir.rglob("*") if p.suffix.lower() in exts and p.is_file()]
+            if paths:
+                rag.add_documents(paths)
+                logger.info("Auto-ingested %d knowledge documents on startup", len(paths))
+        
+        # Warm up AI client
+        _ = ai_client.live
+        logger.info("RAG + AI warmup complete")
+    except Exception as e:
+        logger.warning("Startup warmup failed: %s", e)
+    
     yield
     logger.info("Shutting down %s", settings.app_name)
 
