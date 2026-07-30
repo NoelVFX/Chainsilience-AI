@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { FadeUp, Stagger, StaggerItem } from "@/components/motion";
-import { useApproveScenario, useScenarios, useRefreshScenarios } from "@/lib/hooks";
+import { useApproveScenario, useScenarios, useRefreshScenarios, useApproveScenarioAndNavigate } from "@/lib/hooks";
 import type { ScenarioTile } from "@/lib/types";
 
 /** Screen 5 — Scenario Simulator. Suspense wrapper for useSearchParams. */
