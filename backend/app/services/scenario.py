@@ -106,9 +106,11 @@ def _pct(value: float) -> str:
     return f"{int(round(value * 100))}%"
 
 
-def _parse_money(text: str) -> float:
+def _parse_money(text: str | int | float) -> float:
     if not text:
         return 0.0
+    if isinstance(text, (int, float)):
+        return float(text)
     sign = -1.0 if "-" in text else 1.0
     m = re.search(r"(\d+(?:\.\d+)?)\s*([KMB])?", text.replace(",", ""), re.IGNORECASE)
     if not m:
@@ -118,7 +120,9 @@ def _parse_money(text: str) -> float:
     return sign * val * mult
 
 
-def _parse_pct(text: str) -> float:
+def _parse_pct(text: str | int | float) -> float:
+    if isinstance(text, (int, float)):
+        return float(text)
     m = re.search(r"(\d+(?:\.\d+)?)", text or "")
     return (float(m.group(1)) / 100.0) if m else 0.0
 
