@@ -155,3 +155,14 @@ export function useRisks() {
     queryFn: () => api.get<RiskCard[]>("/risks"),
   });
 }
+
+export function useIngestNews() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<IngestResult>("/news/ingest"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["actions"] });
+    },
+  });
+}
