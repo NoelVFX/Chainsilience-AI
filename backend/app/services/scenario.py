@@ -12,13 +12,17 @@ from __future__ import annotations
 
 import json
 import re
+import logging
 from dataclasses import dataclass
 from typing import Any
 
+from app.core.logging import get_logger
 from app.models.entities import Risk
 from app.services.ai.adapter import ai_client
 from app.services.rag import get_rag_service, RetrievalResult
 from app.services.monte_carlo import MonteCarloService
+
+logger = get_logger(__name__)
 
 
 _REFERENCE_LOSS = 2_400_000.0
@@ -273,19 +277,49 @@ class ScenarioService:
 
     def _generate_with_ai(self, context: dict[str, Any]) -> list[dict] | None:
         """Use RAG + LLM to generate tailored mitigation strategies."""
+        # Debug: AI client status
+        logger.info(
+            "Scenario AI check: live=%s, provider=%s, model=%s",
+            ai_client.live, ai_client.provider, ai_client.model or "none"
+        )
         if not ai_client.live:
+            logger.warning("AI client not live — falling back to deterministic")
+            return None
+
+        # Debug: RAG status
+        rag_chunks = len(self.rag.chunks) if self.rag.chunks else 0
+        rag_indexed = self.rag.index is not None
+        logger.info(
+            "RAG status: chunks=%d, indexed=%s, sources=%s",
+            rag_chunks, rag_indexed,
+            list(set(c.source for c in self.rag.chunks)) if self.rag.chunks else []
+        )
+        if rag_chunks == 0:
+            logger.warning("RAG empty — no knowledge base ingested, falling back to deterministic")
             return None
 
         # 1. Retrieve relevant knowledge from RAG
         rag_query = self._build_rag_query(context)
+        logger.debug("RAG query: %s", rag_query)
         rag_results: list[RetrievalResult] = self.rag.retrieve(rag_query, top_k=5)
+        logger.info(
+            "RAG retrieved %d results for query",
+            len(rag_results)
+        )
+        for i, r in enumerate(rag_results):
+            logger.debug(
+                "RAG result %d: source=%s, score=%.3f, text_preview=%s",
+                i, r.chunk.source, r.combined_score, r.chunk.text[:100]
+            )
         if not rag_results:
+            logger.warning("RAG retrieval returned empty — falling back to deterministic")
             return None
 
         rag_context = self._format_rag_context(rag_results)
 
         # 2. Build prompt with risk context + RAG knowledge
         prompt = self._build_ai_prompt(context, rag_context)
+        logger.debug("AI prompt length: %d chars", len(prompt))
 
         # 3. Call LLM
         try:
@@ -296,13 +330,24 @@ class ScenarioService:
                 temperature=0.2,
             )
             if not out:
+                logger.warning("AI returned empty response")
                 return None
 
+            logger.debug("AI raw response length: %d chars", len(out))
             data = ai_client._extract_json(out)
             if not data or "scenarios" not in data:
+                logger.warning("AI response missing 'scenarios' key: %s", data)
                 return None
 
             scenarios = data["scenarios"]
+            logger.info("AI generated %d scenarios", len(scenarios))
+            for i, s in enumerate(scenarios):
+                logger.debug(
+                    "AI scenario %d: id=%s, name=%s, reduction=%s, cost=%s, recovery=%s, financial=%s",
+                    i, s.get("id"), s.get("name"), s.get("risk_reduction"), s.get("cost"),
+                    s.get("recovery_weeks"), s.get("financial_impact")
+                )
+
             # Validate and format
             formatted = []
             for i, s in enumerate(scenarios):
@@ -317,7 +362,8 @@ class ScenarioService:
                     "source": "ai_rag",
                 })
             return formatted
-        except Exception:
+        except Exception as e:
+            logger.exception("AI scenario generation failed: %s", e)
             return None
 
     def _build_rag_query(self, context: dict[str, Any]) -> str:

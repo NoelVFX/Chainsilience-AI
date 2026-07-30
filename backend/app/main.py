@@ -75,6 +75,67 @@ def health() -> dict:
     }
 
 
+@app.get("/debug/rag", tags=["debug"])
+def debug_rag() -> dict:
+    """Debug RAG status without auth."""
+    from app.services.rag import get_rag_service
+    rag = get_rag_service()
+    rag.initialize()
+    return {
+        "chunks": len(rag.chunks),
+        "indexed": rag.index is not None,
+        "sources": list(set(c.source for c in rag.chunks)),
+        "source_types": list(set(c.source_type for c in rag.chunks)),
+        "persist_dir": str(rag.persist_dir),
+    }
+
+
+@app.post("/debug/rag/ingest", tags=["debug"])
+def debug_rag_ingest() -> dict:
+    """Manually trigger RAG ingestion without auth."""
+    from app.services.rag import get_rag_service
+    rag = get_rag_service()
+    rag.initialize()
+    
+    # Scan knowledge directory
+    from pathlib import Path
+    knowledge_dir = Path("/app/knowledge")
+    exts = {".pdf", ".docx", ".md", ".txt"}
+    paths = [p for p in knowledge_dir.rglob("*") if p.suffix.lower() in exts and p.is_file()]
+    
+    files = [str(p.relative_to(knowledge_dir)) for p in paths if p.exists()]
+    count = rag.add_documents(paths)
+    return {"ingested": count, "files": files}
+
+
+@app.get("/debug/scenario/{risk_id}", tags=["debug"])
+def debug_scenario(risk_id: int) -> dict:
+    """Debug scenario generation for a specific risk."""
+    from app.db.session import get_session
+    from app.repositories import RiskRepository, TwinRepository
+    from app.services.scenario import ScenarioService
+    
+    with next(get_session()) as session:
+        risk = RiskRepository(session).get(risk_id)
+        if not risk:
+            return {"error": "Risk not found"}
+        
+        twin_repo = TwinRepository(session)
+        scenario_service = ScenarioService()
+        scenarios = scenario_service.simulate(
+            risk,
+            twin_nodes=twin_repo.nodes(risk.company_id),
+            twin_edges=twin_repo.edges(risk.company_id),
+        )
+        
+        return {
+            "risk_id": risk_id,
+            "event_type": scenario_service._infer_event_type(risk),
+            "scenarios": scenarios,
+            "source": scenarios[0]["source"] if scenarios else "none",
+        }
+
+
 # --- Versioned API ----------------------------------------------------------
 _prefix = settings.api_v1_prefix
 for module in (auth, company, dashboard, risks, scenarios, actions, news, feedback, reports, rag):
