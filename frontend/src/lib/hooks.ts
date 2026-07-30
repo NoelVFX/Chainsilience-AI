@@ -6,6 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 import { api, setToken } from "@/lib/api";
 import type {
@@ -78,11 +79,20 @@ export function useRiskDetail(riskId: number) {
 export function useScenarios(riskId: number, priority = "balanced") {
   return useQuery({
     queryKey: ["scenarios", riskId, priority],
-    queryFn: () =>
-      api.get<ScenarioResponse>(`/scenarios/${riskId}?priority=${priority}`),
+    queryFn: () => api.get<ScenarioResponse>(`/scenarios/${riskId}?priority=${priority}`),
     enabled: Number.isFinite(riskId),
     // Keep showing the current ranking while a new priority re-fetches.
     placeholderData: (prev) => prev,
+  });
+}
+
+export function useRefreshScenarios(riskId: number, priority = "balanced") {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.get<ScenarioResponse>(`/scenarios/${riskId}?priority=${priority}`),
+    onSuccess: (data) => {
+      qc.setQueryData(["scenarios", riskId, priority], data);
+    },
   });
 }
 
@@ -100,6 +110,21 @@ export function useApproveScenario(riskId: number) {
     mutationFn: (scenarioId: string) =>
       api.post<ApproveResult>(`/scenarios/${riskId}/approve`, { scenario_id: scenarioId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["actions"] }),
+  });
+}
+
+export function useApproveScenarioAndNavigate(riskId: number) {
+  const qc = useQueryClient();
+  const router = useRouter();
+  return useMutation({
+    mutationFn: (scenarioId: string) =>
+      api.post<ApproveResult>(`/scenarios/${riskId}/approve`, { scenario_id: scenarioId }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["actions"] });
+      if (result.approved) {
+        router.push("/action-center");
+      }
+    },
   });
 }
 

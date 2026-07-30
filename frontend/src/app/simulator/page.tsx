@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { FadeUp, Stagger, StaggerItem } from "@/components/motion";
-import { useApproveScenario, useScenarios } from "@/lib/hooks";
+import { useApproveScenario, useScenarios, useRefreshScenarios } from "@/lib/hooks";
 import type { ScenarioTile } from "@/lib/types";
 
 /** Screen 5 — Scenario Simulator. Suspense wrapper for useSearchParams. */
@@ -33,7 +33,8 @@ function SimulatorInner() {
   const riskId = Number(search.get("risk") ?? 0);
   const [priority, setPriority] = useState("balanced");
   const { data, isLoading } = useScenarios(riskId, priority);
-  const approve = useApproveScenario(riskId);
+  const refresh = useRefreshScenarios(riskId, priority);
+  const approve = useApproveScenarioAndNavigate(riskId);
 
   const [selectedId, setSelectedId] = useState("switch");
   const [notice, setNotice] = useState<string | null>(null);
@@ -114,6 +115,14 @@ function SimulatorInner() {
             </button>
           );
         })}
+        <button
+          onClick={() => refresh.mutate()}
+          disabled={refresh.isPending}
+          className="ml-2 rounded-control border px-3 py-1.5 text-[12px] font-semibold text-muted hover:text-text transition-colors"
+          style={{ borderColor: "rgba(148,163,184,0.3)", background: "rgba(148,163,184,0.05)" }}
+        >
+          {refresh.isPending ? "Refreshing…" : "↻ Refresh Strategies"}
+        </button>
       </div>
 
       {/* Scenario cards — ordered best-fit first for the chosen priority */}
