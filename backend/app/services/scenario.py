@@ -330,10 +330,9 @@ class ScenarioService:
                 temperature=0.2,
             )
             if not out:
-                logger.warning("AI returned empty response")
+                logger.warning("AI returned empty response (likely timeout)")
                 return None
 
-            logger.debug("AI raw response length: %d chars", len(out))
             data = ai_client._extract_json(out)
             if not data or "scenarios" not in data:
                 logger.warning("AI response missing 'scenarios' key: %s", data)

@@ -61,8 +61,8 @@ class Settings(BaseSettings):
 
     # Hard per-call timeout (seconds) so a slow/unreachable LLM endpoint can
     # never hang a request — the adapter falls back deterministically instead.
-    ai_request_timeout: float = 25.0
-    ai_max_tokens: int = 900
+    ai_request_timeout: float = 45.0
+    ai_max_tokens: int = 1200
 
     # --- News scraping --------------------------------------------------------
     # Curated public RSS feeds for supply-chain / trade / logistics / disaster
