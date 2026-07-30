@@ -75,6 +75,12 @@ def health() -> dict:
     }
 
 
+@app.get("/healthz", tags=["meta"])
+def healthz() -> dict:
+    """Lightweight liveness probe for Render health checks (no ML imports)."""
+    return {"status": "ok"}
+
+
 @app.get("/debug/rag", tags=["debug"])
 def debug_rag() -> dict:
     """Debug RAG status without auth."""

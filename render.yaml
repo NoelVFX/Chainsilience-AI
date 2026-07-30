@@ -14,8 +14,8 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    healthCheckPath: /health
+    dockerContext: .
+    healthCheckPath: /healthz
     envVars:
       - key: SECRET_KEY
         generateValue: true
