@@ -13,8 +13,8 @@ from app.services.rag import get_rag_service, RetrievalResult
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
-# Default knowledge base path (project root)
-DEFAULT_KB_PATH = Path(__file__).resolve().parents[3]
+# Default knowledge base path (inside container: /app/knowledge)
+DEFAULT_KB_PATH = Path("/app/knowledge")
 
 
 class IngestRequest(BaseModel):
