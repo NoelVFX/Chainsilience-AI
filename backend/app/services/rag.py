@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 # Core stdlib only - optional deps loaded lazily in methods
+import math
 re_findall = re.findall
 re_search = re.search
 re_sub = re.sub
@@ -295,6 +296,15 @@ class RAGService:
             print("RAG: Optional dependencies not available, skipping document indexing")
             return 0
 
+        # Import faiss and numpy here since they're only needed when _available=True
+        try:
+            import faiss
+            import numpy as np
+        except ImportError as e:
+            print(f"RAG: Dependencies missing during add_documents: {e}")
+            self._available = False
+            return 0
+
         new_chunks = []
         for path in paths:
             if not path.exists():
@@ -343,6 +353,15 @@ class RAGService:
     def retrieve(self, query: str, top_k: int = TOP_K) -> list[RetrievalResult]:
         """Hybrid retrieval: vector + BM25, combined score."""
         if not self._available or not self.chunks or self.index is None:
+            return []
+
+        # Import faiss and numpy here since they're only needed when _available=True
+        try:
+            import faiss
+            import numpy as np
+        except ImportError as e:
+            print(f"RAG: Dependencies missing during retrieve: {e}")
+            self._available = False
             return []
 
         # Vector search
