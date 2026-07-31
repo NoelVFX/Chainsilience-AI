@@ -1,12 +1,12 @@
 """Scenario simulator endpoints: simulate strategies and approve one."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlmodel import Session
 
 from app.api.deps import get_current_company_id
 from app.core.logging import get_logger
-from app.db.session import get_session
+from app.db.session import engine, get_session
 from app.models.entities import Action, ActionStatus, Severity
 from app.repositories import ActionRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
@@ -97,20 +97,47 @@ def simulate(
     )
 
 
+def _generate_recommendations(company_id: int, risk_id: int) -> None:
+    """Background task: generate the event's recommendations (may call the LLM).
+
+    Runs after the approve response is sent — with its own session — so the
+    approve request returns fast and the client navigates without timing out on
+    a slow model call. Deduped, so re-running is harmless.
+    """
+    try:
+        with Session(engine) as bg:
+            risk = RiskRepository(bg).get(risk_id)
+            if not risk or risk.company_id != company_id:
+                return
+            repo = ActionRepository(bg)
+            for rec in RecommendationService(ScenarioService()).recommend(risk):
+                repo.add_unique(
+                    Action(
+                        company_id=company_id, risk_id=risk.id, title=rec.title,
+                        owner=rec.department, deadline=rec.deadline, priority=rec.priority,
+                        status=ActionStatus.RECOMMENDED,
+                        estimated_benefit=rec.estimated_benefit,
+                        estimated_cost=rec.estimated_cost, department=rec.department,
+                    )
+                )
+    except Exception as exc:  # noqa: BLE001 — never crash the background worker
+        logger.warning("Background recommendation generation failed: %s", exc)
+
+
 @router.post("/{risk_id}/approve")
 def approve(
     risk_id: int,
     payload: ApproveScenarioRequest,
+    background_tasks: BackgroundTasks,
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
 ) -> dict:
-    """Approve a scenario → send it to the Action Center.
+    """Approve a scenario → send it to the Action Center (fast).
 
-    Rules:
-      * Approving the **same scenario** twice is rejected ("already approved").
-      * On first approval, the event's AI recommendations are generated into the
-        **Recommended** column (recommendations only appear once a scenario for
-        the event has been approved).
+    Creates the approved action synchronously and returns immediately; the
+    event's recommendations are generated in a background task (which may call
+    the LLM) so the request never blocks the UI navigation.
+    Approving the same scenario twice is rejected ("already approved").
     """
     risk = RiskRepository(session).get(risk_id)
     if not risk or risk.company_id != company_id:
@@ -149,31 +176,12 @@ def approve(
         )
     )
 
-    # Now that a scenario is approved, surface this event's recommendations in
-    # the Recommended column (deduped).
-    recommended = 0
-    for rec in RecommendationService(ScenarioService()).recommend(risk):
-        saved = repo.add_unique(
-            Action(
-                company_id=company_id,
-                risk_id=risk.id,
-                title=rec.title,
-                owner=rec.department,
-                deadline=rec.deadline,
-                priority=rec.priority,
-                status=ActionStatus.RECOMMENDED,
-                estimated_benefit=rec.estimated_benefit,
-                estimated_cost=rec.estimated_cost,
-                department=rec.department,
-            )
-        )
-        if saved:
-            recommended += 1
+    # Generate recommendations off the request path (may hit the LLM).
+    background_tasks.add_task(_generate_recommendations, company_id, risk.id)
 
     return {
         "approved": True,
         "status": action.status.value,
         "action_id": action.id,
-        "recommended_added": recommended,
-        "message": f"Approved. {recommended} recommended action(s) added.",
+        "message": "Approved and sent to the Action Center.",
     }
