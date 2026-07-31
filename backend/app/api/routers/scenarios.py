@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from app.api.deps import get_current_company_id
+from app.core.logging import get_logger
 from app.db.session import get_session
 from app.models.entities import Action, ActionStatus, Severity
 from app.repositories import ActionRepository, RiskRepository, TwinRepository
@@ -16,6 +17,8 @@ from app.schemas.domain import (
 from app.services.mitigation_scoring import MitigationScorer
 from app.services.recommendations import RecommendationService
 from app.services.scenario import ScenarioService
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
@@ -39,13 +42,27 @@ def _ensure_scenarios(session: Session, risk, company_id: int, *, force: bool) -
     option set is stable across reads/priority changes until explicitly refreshed.
     """
     if risk.scenarios and not force:
-        return list(risk.scenarios)
+        stored = list(risk.scenarios)
+        logger.info(
+            "Scenario set for risk=%s: reusing %d persisted scenario(s), sources=%s",
+            risk.id,
+            len(stored),
+            sorted({str(s.get("source", "unknown")) for s in stored}),
+        )
+        return stored
 
     twin_repo = TwinRepository(session)
     generated = ScenarioService().generate(
         risk, twin_nodes=twin_repo.nodes(company_id), twin_edges=twin_repo.edges(company_id)
     )
     risk.scenarios = _normalise_ids(generated)
+    logger.info(
+        "Scenario set for risk=%s: %s %d scenario(s), sources=%s",
+        risk.id,
+        "refreshing" if force else "generating",
+        len(risk.scenarios),
+        sorted({str(s.get("source", "unknown")) for s in risk.scenarios}),
+    )
     session.add(risk)
     session.commit()
     session.refresh(risk)
