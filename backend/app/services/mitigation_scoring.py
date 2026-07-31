@@ -100,6 +100,8 @@ class MitigationScorer:
             risk_n, service_n, fin_n, cost_n
         )
 
+        # Balanced multi-objective utility U(a) (used for "balanced" and as the
+        # tiebreaker for a specific priority).
         utilities: list[float] = []
         for i in range(len(scenarios)):
             u = (
@@ -109,19 +111,34 @@ class MitigationScorer:
                 - weights["cost"] * cost_n[i]
             )
             utilities.append(u)
-            logger.info(
-                "Scenario %s (%s): utility=%.4f (service=%.3f, fin=%.3f, risk=%.3f, cost=%.3f)",
-                scenarios[i].get("id"), scenarios[i].get("name"), u,
-                service_n[i], fin_n[i], risk_n[i], cost_n[i]
-            )
 
-        # Present a relative 0-100 fit score (best option = 100).
-        score_n = _minmax(utilities)
-        ranked = []
-        for i, s in enumerate(scenarios):
-            ranked.append({**s, "utility": round(utilities[i], 4),
-                           "score": round(score_n[i] * 100)})
-        ranked.sort(key=lambda s: s["utility"], reverse=True)
+        # "Fit" = how well each option serves the CHOSEN priority (0-1, higher is
+        # better). For a specific priority this is the objective itself, so the
+        # ranking leads with it (e.g. cost priority ⇒ cheapest first). Balanced
+        # uses the normalised U(a).
+        if priority == "cost":
+            fit = [1.0 - c for c in cost_n]        # lower cost ⇒ better fit
+        elif priority == "risk":
+            fit = risk_n                            # more reduction ⇒ better
+        elif priority == "recovery":
+            fit = service_n                         # faster recovery ⇒ better
+        elif priority == "financial":
+            fit = fin_n                             # less negative ⇒ better
+        else:
+            fit = _minmax(utilities)                # balanced
+
+        logger.info(
+            "Mitigation ranking priority=%s fit=%s U=%s",
+            priority, [round(f, 3) for f in fit], [round(u, 3) for u in utilities],
+        )
+
+        ranked = [
+            {**s, "utility": round(utilities[i], 4),
+             "fit": round(fit[i], 4), "score": round(fit[i] * 100)}
+            for i, s in enumerate(scenarios)
+        ]
+        # Primary: fit for the chosen objective; tiebreak: balanced utility.
+        ranked.sort(key=lambda s: (s["fit"], s["utility"]), reverse=True)
         for rank, s in enumerate(ranked, start=1):
             s["rank"] = rank
         return ranked

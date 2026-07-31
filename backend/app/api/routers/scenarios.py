@@ -20,30 +20,57 @@ from app.services.scenario import ScenarioService
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 
 
+def _normalise_ids(scenarios: list[dict]) -> list[dict]:
+    """Guarantee stable, unique scenario ids (LLM output can omit/duplicate them)."""
+    seen: set[str] = set()
+    out: list[dict] = []
+    for i, s in enumerate(scenarios):
+        sid = str(s.get("id") or f"opt_{i}")
+        if sid in seen:
+            sid = f"opt_{i}"
+        seen.add(sid)
+        out.append({**s, "id": sid})
+    return out
+
+
+def _ensure_scenarios(session: Session, risk, company_id: int, *, force: bool) -> list[dict]:
+    """Return the risk's persisted scenarios, generating + saving them once
+    (or again on ``force``). Generation is the only place the LLM runs, so the
+    option set is stable across reads/priority changes until explicitly refreshed.
+    """
+    if risk.scenarios and not force:
+        return list(risk.scenarios)
+
+    twin_repo = TwinRepository(session)
+    generated = ScenarioService().generate(
+        risk, twin_nodes=twin_repo.nodes(company_id), twin_edges=twin_repo.edges(company_id)
+    )
+    risk.scenarios = _normalise_ids(generated)
+    session.add(risk)
+    session.commit()
+    session.refresh(risk)
+    return list(risk.scenarios)
+
+
 @router.get("/{risk_id}", response_model=ScenarioResponse)
 def simulate(
     risk_id: int,
     priority: str = "balanced",
+    refresh: bool = False,
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
 ) -> ScenarioResponse:
-    """Simulate mitigation options and rank them by a multi-objective score.
+    """Return the risk's mitigation options, ranked by a multi-objective score.
 
-    ``priority`` (balanced | risk | cost | recovery | financial) amplifies one
-    objective in the U(a) utility; the best-fit option is returned first.
+    The option set is **persisted** and stable: changing ``priority`` only
+    re-ranks the same set. Pass ``refresh=true`` to regenerate the strategies.
     """
     risk = RiskRepository(session).get(risk_id)
     if not risk or risk.company_id != company_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Risk not found")
 
     priority = priority if priority in MitigationScorer.PRIORITIES else "balanced"
-    scenario_service = ScenarioService()
-    twin_repo = TwinRepository(session)
-    scenarios = scenario_service.simulate(
-        risk,
-        twin_nodes=twin_repo.nodes(company_id),
-        twin_edges=twin_repo.edges(company_id),
-    )
+    scenarios = _ensure_scenarios(session, risk, company_id, force=refresh)
     ranked = MitigationScorer().rank(scenarios, priority)
     return ScenarioResponse(
         risk_id=risk.id,
@@ -72,14 +99,10 @@ def approve(
     if not risk or risk.company_id != company_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Risk not found")
 
-    scenario_service = ScenarioService()
-    twin_repo = TwinRepository(session)
-    scenario = scenario_service.get(
-        risk,
-        payload.scenario_id,
-        twin_nodes=twin_repo.nodes(company_id),
-        twin_edges=twin_repo.edges(company_id),
-    )
+    # Look the scenario up in the risk's PERSISTED set (same ids the UI showed),
+    # so approve never regenerates or loses the selection.
+    scenarios = _ensure_scenarios(session, risk, company_id, force=False)
+    scenario = next((s for s in scenarios if s["id"] == payload.scenario_id), None)
     if not scenario:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown scenario")
 

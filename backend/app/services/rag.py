@@ -5,6 +5,12 @@ Embeddings + vector store for domain knowledge grounding:
 - FAISS index (local, no external deps) + sentence-transformers embeddings
 - Hybrid retrieval: vector similarity + BM25 keyword overlap
 - Provides context snippets to LLM calls in scenario, risk, recommendation modules
+
+Optional dependencies (loaded lazily):
+- numpy, sentence-transformers, faiss, torch (for semantic retrieval)
+- pdfplumber, python-docx, markdown, beautifulsoup4 (for document parsing)
+When optional deps are unavailable, the service degrades gracefully to deterministic
+scenario generation with a clear log message.
 """
 from __future__ import annotations
 
@@ -15,37 +21,12 @@ import pickle
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
-
-# Lazy imports for optional deps
-try:
-    import faiss
-    FAISS_AVAILABLE = True
-except ImportError:
-    FAISS_AVAILABLE = False
-    faiss = None  # type: ignore
-
-try:
-    import pdfplumber
-    PDFPLUMBER_AVAILABLE = True
-except ImportError:
-    PDFPLUMBER_AVAILABLE = False
-
-try:
-    from docx import Document
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
-
-try:
-    import markdown
-    from bs4 import BeautifulSoup
-    MARKDOWN_AVAILABLE = True
-except ImportError:
-    MARKDOWN_AVAILABLE = False
+# Core stdlib only - optional deps loaded lazily in methods
+re_findall = re.findall
+re_search = re.search
+re_sub = re.sub
 
 
 @dataclass
@@ -111,7 +92,7 @@ class BM25Index:
             for tok in tokens:
                 if tok not in self.doc_freqs:
                     continue
-                idf = np.log((self.N - self.doc_freqs[tok] + 0.5) / (self.doc_freqs[tok] + 0.5) + 1.0)
+                idf = math.log((self.N - self.doc_freqs[tok] + 0.5) / (self.doc_freqs[tok] + 0.5) + 1.0)
                 tf = doc_tokens.count(tok)
                 score += idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / self.avgdl))
             scores.append(score)
@@ -131,18 +112,32 @@ class RAGService:
         self.persist_dir.mkdir(parents=True, exist_ok=True)
 
         self.chunks: list[DocumentChunk] = []
-        self.embeddings: np.ndarray | None = None
+        self.embeddings: Optional["np.ndarray"] = None
         self.index: Any = None  # faiss.IndexFlatIP
         self.bm25 = BM25Index()
-        self.embedder: SentenceTransformer | None = None
+        self.embedder: Optional["SentenceTransformer"] = None
         self._initialized = False
+        self._available = None  # None=unknown, True=available, False=unavailable
 
     def initialize(self) -> bool:
         """Load embedder and existing index if available."""
+        # Check if heavy dependencies are available
+        try:
+            import numpy as np
+            from sentence_transformers import SentenceTransformer
+            import faiss
+        except ImportError as e:
+            print(f"RAG: Optional dependencies not available ({e}). Degrading to deterministic mode.")
+            self._available = False
+            self._initialized = True
+            return False
+
         try:
             self.embedder = SentenceTransformer(self.EMBED_MODEL)
         except Exception as e:
             print(f"RAG: Failed to load embedder: {e}")
+            self._available = False
+            self._initialized = True
             return False
 
         index_path = self.persist_dir / "faiss.index"
@@ -151,23 +146,27 @@ class RAGService:
 
         if index_path.exists() and chunks_path.exists():
             try:
+                import faiss
                 self.index = faiss.read_index(str(index_path))
                 with open(chunks_path, "rb") as f:
                     self.chunks = pickle.load(f)
-                if bm25_path.exists():
-                    with open(bm25_path, "rb") as f:
+                if (self.persist_dir / "bm25.pkl").exists():
+                    with open(self.persist_dir / "bm25.pkl", "rb") as f:
                         self.bm25 = pickle.load(f)
+                self._available = True
                 self._initialized = True
                 print(f"RAG: Loaded index with {len(self.chunks)} chunks")
                 return True
             except Exception as e:
                 print(f"RAG: Failed to load index: {e}")
 
+        self._available = True
         self._initialized = True
         return True
 
-    def _get_embedder(self) -> SentenceTransformer:
+    def _get_embedder(self):
         if self.embedder is None:
+            from sentence_transformers import SentenceTransformer
             self.embedder = SentenceTransformer(self.EMBED_MODEL)
         return self.embedder
 
@@ -175,7 +174,9 @@ class RAGService:
 
     def load_pdf(self, path: Path) -> list[DocumentChunk]:
         """Extract text from PDF with page-level chunks."""
-        if not PDFPLUMBER_AVAILABLE:
+        try:
+            import pdfplumber
+        except ImportError:
             return []
         chunks = []
         with pdfplumber.open(str(path)) as pdf:
@@ -196,7 +197,9 @@ class RAGService:
 
     def load_docx(self, path: Path) -> list[DocumentChunk]:
         """Extract text from DOCX with paragraph-level chunks."""
-        if not DOCX_AVAILABLE:
+        try:
+            from docx import Document
+        except ImportError:
             return []
         chunks = []
         doc = Document(str(path))
@@ -213,7 +216,10 @@ class RAGService:
 
     def load_markdown(self, path: Path) -> list[DocumentChunk]:
         """Extract text from Markdown, preserving headers as sections."""
-        if not MARKDOWN_AVAILABLE:
+        try:
+            import markdown
+            from bs4 import BeautifulSoup
+        except ImportError:
             return []
         text = path.read_text(encoding="utf-8")
         html = markdown.markdown(text)
@@ -285,6 +291,10 @@ class RAGService:
         if not self._initialized:
             self.initialize()
 
+        if not self._available:
+            print("RAG: Optional dependencies not available, skipping document indexing")
+            return 0
+
         new_chunks = []
         for path in paths:
             if not path.exists():
@@ -305,7 +315,7 @@ class RAGService:
         # Add to FAISS index
         if self.index is None:
             self.index = faiss.IndexFlatIP(new_embeddings.shape[1])
-        self.index.add(new_embeddings.astype(np.float32))
+        self.index.add(new_embeddings.astype("float32"))
 
         # Add to BM25
         self.bm25.add_documents(texts)
@@ -321,6 +331,7 @@ class RAGService:
     def _persist(self) -> None:
         """Save index, chunks, and BM25 to disk."""
         if self.index is not None:
+            import faiss
             faiss.write_index(self.index, str(self.persist_dir / "faiss.index"))
         with open(self.persist_dir / "chunks.pkl", "wb") as f:
             pickle.dump(self.chunks, f)
@@ -331,12 +342,12 @@ class RAGService:
 
     def retrieve(self, query: str, top_k: int = TOP_K) -> list[RetrievalResult]:
         """Hybrid retrieval: vector + BM25, combined score."""
-        if not self.chunks or self.index is None:
+        if not self._available or not self.chunks or self.index is None:
             return []
 
         # Vector search
         embedder = self._get_embedder()
-        q_emb = embedder.encode([query], normalize_embeddings=True).astype(np.float32)
+        q_emb = embedder.encode([query], normalize_embeddings=True).astype("float32")
         k = min(top_k * 3, len(self.chunks))  # over-fetch for fusion
         scores, indices = self.index.search(q_emb, k)
 

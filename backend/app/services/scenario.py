@@ -138,25 +138,32 @@ class ScenarioService:
         twin_nodes: list[Any] = None,
         twin_edges: list[Any] = None,
     ) -> list[dict]:
-        """Generate tailored mitigation scenarios for a specific risk.
+        """Return this risk's mitigation scenarios.
 
-        Args:
-            risk: The Risk entity with all its metadata (event, supplier, impact, etc.)
-            twin_nodes: Optional Digital Twin nodes for deeper context
-            twin_edges: Optional Digital Twin edges for cascade context
-
-        Returns:
-            List of scenario dicts with id, name, risk_reduction, cost, recovery, financial, rank
+        Returns the **persisted** set if the risk already has one (so the option
+        set is stable across requests and priority changes); otherwise generates
+        a fresh set. Persistence is the caller's responsibility (the router),
+        which lets us regenerate only on an explicit refresh.
         """
-        # 1. Extract risk context
-        context = self._build_context(risk, twin_nodes, twin_edges)
+        if risk.scenarios:
+            return list(risk.scenarios)
+        return self.generate(risk, twin_nodes, twin_edges)
 
-        # 2. Try RAG + AI generation
+    def generate(
+        self,
+        risk: Risk,
+        twin_nodes: list[Any] = None,
+        twin_edges: list[Any] = None,
+    ) -> list[dict]:
+        """Generate a fresh tailored scenario set (RAG + AI, else deterministic).
+
+        Non-deterministic when the LLM path is used — call this only when
+        (re)generating, never on every read.
+        """
+        context = self._build_context(risk, twin_nodes, twin_edges)
         scenarios = self._generate_with_ai(context)
         if scenarios:
             return scenarios
-
-        # 3. Fallback: deterministic template + event-type adjustments
         return self._generate_deterministic(context)
 
     def _build_context(

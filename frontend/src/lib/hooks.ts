@@ -89,9 +89,13 @@ export function useScenarios(riskId: number, priority = "balanced") {
 export function useRefreshScenarios(riskId: number, priority = "balanced") {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.get<ScenarioResponse>(`/scenarios/${riskId}?priority=${priority}`),
+    // refresh=true regenerates + persists a new option set on the backend.
+    mutationFn: () =>
+      api.get<ScenarioResponse>(`/scenarios/${riskId}?priority=${priority}&refresh=true`),
     onSuccess: (data) => {
+      // Update every cached priority view for this risk (they share one set).
       qc.setQueryData(["scenarios", riskId, priority], data);
+      qc.invalidateQueries({ queryKey: ["scenarios", riskId] });
     },
   });
 }

@@ -188,6 +188,10 @@ class Risk(SQLModel, table=True):
     impact: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     # ordered strings — cascade from trigger to revenue
     chain: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    # Persisted mitigation scenarios (generated once, refreshed on demand) so the
+    # option set is stable across requests/priority changes and only regenerates
+    # when explicitly refreshed. [{id,name,risk_reduction,cost,recovery,financial,...}]
+    scenarios: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_utcnow)
 
 
