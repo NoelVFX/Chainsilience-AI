@@ -8,8 +8,8 @@ from app.api.deps import get_current_company_id
 from app.core.constants import severity_color, severity_label
 from app.core.timeutil import relative_time
 from app.db.session import get_session
-from app.models.entities import Risk
-from app.repositories import EmailDraftRepository, EventRepository, RiskRepository, TwinRepository
+from app.models.entities import Action, Risk
+from app.repositories import ActionRepository, EmailDraftRepository, EventRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
     EmailRequest,
     EmailResponse,
@@ -50,6 +50,30 @@ def _load_risk(risk_id: int, company_id: int, session: Session) -> Risk:
     return risk
 
 
+def _reconcile_legacy_completed_mitigations(
+    session: Session,
+    risk: Risk,
+    completed_actions: list[Action],
+) -> None:
+    """Repair auxiliary metrics for completions recorded before mitigation IDs.
+
+    Older deployments reduced the headline score but did not consistently update
+    the factor/impact tiles. Apply their tile/factor effect once, without
+    reducing score or revenue a second time, then persist the action ID.
+    """
+    applied = set(risk.mitigation_action_ids or [])
+    pending = [a for a in completed_actions if a.id is not None and a.id not in applied]
+    if not pending:
+        return
+
+    # Local import avoids coupling Action Center's normal mutation path to the
+    # Risk Detail router at application import time.
+    from app.api.routers.actions import _apply_mitigation_effect
+
+    for action in pending:
+        _apply_mitigation_effect(session, action, apply_core_metrics=False)
+
+
 @router.get("/{risk_id}", response_model=RiskDetailResponse)
 def risk_detail(
     risk_id: int,
@@ -57,6 +81,12 @@ def risk_detail(
     session: Session = Depends(get_session),
 ) -> RiskDetailResponse:
     r = _load_risk(risk_id, company_id, session)
+    assert r.id is not None
+    _reconcile_legacy_completed_mitigations(
+        session,
+        r,
+        ActionRepository(session).completed_for_risk(company_id, r.id),
+    )
 
     # Normalise legacy tile labels stored in older risk records / AI output, so
     # renamed metrics show correctly regardless of what's persisted.

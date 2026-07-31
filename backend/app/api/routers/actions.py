@@ -60,7 +60,12 @@ def board(
     )
 
 
-def _apply_mitigation_effect(session: Session, action: Action) -> None:
+def _apply_mitigation_effect(
+    session: Session,
+    action: Action,
+    *,
+    apply_core_metrics: bool = True,
+) -> None:
     """Reduce the linked risk's metrics when a mitigation completes.
 
     The reduction comes from the action's own estimated benefit (e.g.
@@ -82,9 +87,10 @@ def _apply_mitigation_effect(session: Session, action: Action) -> None:
     pct = min(95, int(m.group(1))) / 100 if m else 0.05
 
     old_score, old_rev = risk.score, risk.revenue_at_risk
-    risk.score = max(0, round(risk.score * (1 - pct)))
-    risk.revenue_at_risk = max(0.0, risk.revenue_at_risk * (1 - pct))
-    risk.severity = RiskScoringService._band(risk.score)
+    if apply_core_metrics:
+        risk.score = max(0, round(risk.score * (1 - pct)))
+        risk.revenue_at_risk = max(0.0, risk.revenue_at_risk * (1 - pct))
+        risk.severity = RiskScoringService._band(risk.score)
 
     # --- Update impact tiles to reflect mitigation ---
     # Inventory Coverage: mitigation buys time → effective coverage increases
@@ -185,12 +191,17 @@ def _apply_mitigation_effect(session: Session, action: Action) -> None:
 
     risk.factors = factors
     risk.impact = impact
+    applied_action_ids = list(risk.mitigation_action_ids or [])
+    if action.id is not None and action.id not in applied_action_ids:
+        applied_action_ids.append(action.id)
+    risk.mitigation_action_ids = applied_action_ids
 
-    note = (
-        f" [Mitigation completed: “{action.title}” — risk reduced by "
-        f"{int(pct * 100)}% (score {old_score}→{risk.score})]"
-    )
-    risk.reasoning = (risk.reasoning or "") + note
+    if apply_core_metrics:
+        note = (
+            f" [Mitigation completed: “{action.title}” — risk reduced by "
+            f"{int(pct * 100)}% (score {old_score}→{risk.score})]"
+        )
+        risk.reasoning = (risk.reasoning or "") + note
     session.add(risk)
     session.commit()
     logger.info(

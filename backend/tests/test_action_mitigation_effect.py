@@ -10,6 +10,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.api.routers.actions import _apply_mitigation_effect
+from app.api.routers.risks import _reconcile_legacy_completed_mitigations
 from app.models.entities import Action, Risk, Severity
 from app.services.monte_carlo import MonteCarloService
 
@@ -29,6 +30,9 @@ class _Session:
 
     def add(self, entity: object) -> None:
         assert entity is self.risk
+
+    def get(self, _model: object, risk_id: int) -> Risk | None:
+        return self.risk if self.risk.id == risk_id else None
 
     def commit(self) -> None:
         self.committed = True
@@ -95,6 +99,7 @@ class CompletedMitigationEffectTests(unittest.TestCase):
         self.assertLess(factors["Supplier Dependency"], 80)
         self.assertLess(factors["Inventory Coverage"], 70)
         self.assertLess(factors["Alternative Suppliers"], 70)
+        self.assertEqual(getattr(risk, "mitigation_action_ids", None), [action.id])
 
         after_probability = monte_carlo.stoppage_probability(
             monte_carlo.inputs_from_risk(risk, event_type="earthquake"),
@@ -102,6 +107,32 @@ class CompletedMitigationEffectTests(unittest.TestCase):
             seed=14,
         )
         self.assertLess(after_probability, before_probability)
+
+    def test_legacy_completed_action_repairs_detail_metrics_without_reducing_score_twice(self) -> None:
+        risk = _risk()
+        risk.score = 37
+        risk.revenue_at_risk = 500_000
+        session = _Session(risk)
+        action = Action(
+            id=12,
+            company_id=1,
+            risk_id=risk.id,
+            title="Switch Supplier — Factory disruption",
+            estimated_benefit="50% risk reduction",
+        )
+
+        _reconcile_legacy_completed_mitigations(session, risk, [action])
+
+        values = {tile["label"]: tile["value"] for tile in risk.impact}
+        self.assertEqual(risk.score, 37)
+        self.assertEqual(risk.revenue_at_risk, 500_000)
+        self.assertNotEqual(values["Production Delay"], "10–20 days")
+        self.assertNotEqual(values["Recovery Time"], "6 weeks")
+        self.assertEqual(risk.mitigation_action_ids, [action.id])
+
+        repaired_impact = [dict(tile) for tile in risk.impact]
+        _reconcile_legacy_completed_mitigations(session, risk, [action])
+        self.assertEqual(risk.impact, repaired_impact)
 
 
 if __name__ == "__main__":

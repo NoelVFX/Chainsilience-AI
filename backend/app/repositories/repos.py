@@ -162,6 +162,20 @@ class ActionRepository:
             ).all()
         )
 
+    def completed_for_risk(self, company_id: int, risk_id: int) -> list[Action]:
+        """Completed mitigations linked to one risk, oldest first."""
+        return list(
+            self.session.exec(
+                select(Action)
+                .where(
+                    Action.company_id == company_id,
+                    Action.risk_id == risk_id,
+                    Action.status == ActionStatus.COMPLETED,
+                )
+                .order_by(Action.created_at.asc())
+            ).all()
+        )
+
     def get(self, action_id: int) -> Action | None:
         return self.session.get(Action, action_id)
 

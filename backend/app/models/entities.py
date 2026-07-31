@@ -192,6 +192,10 @@ class Risk(SQLModel, table=True):
     # option set is stable across requests/priority changes and only regenerates
     # when explicitly refreshed. [{id,name,risk_reduction,cost,recovery,financial,...}]
     scenarios: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    # Completed action IDs whose mitigation effects have been applied. This makes
+    # action completion idempotent and lets legacy completed actions be repaired
+    # once without reducing score/revenue a second time.
+    mitigation_action_ids: list[int] = Field(default_factory=list, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=_utcnow)
 
 
