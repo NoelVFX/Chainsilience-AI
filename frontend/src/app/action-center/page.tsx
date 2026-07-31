@@ -76,9 +76,9 @@ export default function ActionCenterPage() {
         </Stagger>
       )}
       <p className="mt-6 text-[11.5px] text-muted/70">
-        Tip: click a card to advance it. Completing a mitigation reduces its
-        risk&apos;s score and revenue at risk on the dashboard; use ✕ to clear
-        completed cards from the board.
+        Tip: click a card to advance it. Completing a mitigation updates its
+        risk score, breakdown, revenue at risk, delay, recovery time, and
+        production-stoppage probability; use ✕ to clear completed cards.
       </p>
     </AppShell>
   );

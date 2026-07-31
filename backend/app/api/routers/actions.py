@@ -143,32 +143,45 @@ def _apply_mitigation_effect(session: Session, action: Action) -> None:
             from app.services.dashboard import _fmt_money
             tile["value"] = _fmt_money(risk.revenue_at_risk)
 
-    # --- Update factors to reflect mitigation ---
-    # Alternative Suppliers: if strategy was "Switch Supplier", increase count
-    # Supplier Dependency: mitigation reduces effective dependency
-    # Inventory Coverage factor: recalculate from updated tile
+    # --- Update the risk-score breakdown to reflect mitigation ---
+    # Factors are risk contributions (higher means greater exposure), not raw
+    # supplier counts. Keep the event's inherent severity mostly intact, while
+    # reducing the controllable operational exposures. This makes the persisted
+    # score breakdown agree with the improved score, impact tiles, and the next
+    # Monte Carlo run shown on the Risk Detail screen.
     factors = risk.factors or []
     for f in factors:
         label = f.get("label", "")
+        current = float(f.get("value", 0) or 0)
+        if "Event Severity" in label:
+            f["value"] = max(0, round(current * (1 - pct * 0.25)))
         if "Alternative Suppliers" in label:
-            # If we switched supplier or qualified alternates, bump the count
-            current = f.get("value", 0)
+            # This is an exposure contribution: switching/qualifying alternates
+            # must lower it, rather than treating the 0-100 value as a count.
             if "switch" in (action.title or "").lower():
-                f["value"] = min(100, current + int(20 * pct * 100))  # 0-100 scale
+                f["value"] = max(0, round(current * (1 - pct * 0.80)))
+            else:
+                f["value"] = max(0, round(current * (1 - pct * 0.35)))
         elif "Inventory Coverage" in label:
-            # Recalculate from updated impact tile
+            # Recalculate from the increased effective coverage, then apply the
+            # mitigation residual because the coverage is no longer exposed to
+            # the same unmitigated disruption path.
             for tile in impact:
                 if "Inventory Coverage" in tile.get("label", ""):
                     m2 = re.search(r"(\d+(?:\.\d+)?)", tile.get("value", ""))
                     if m2:
                         days = float(m2.group(1))
                         # Factor: less coverage = higher risk contribution (0-100)
-                        f["value"] = max(0, 100 - min(days, 60) * 100 // 60)
+                        coverage_risk = max(0, 100 - min(days, 60) * 100 / 60)
+                        f["value"] = round(coverage_risk * (1 - pct * 0.50))
                     break
         elif "Supplier Dependency" in label:
             # Mitigation reduces effective dependency
-            current = f.get("value", 0)
-            f["value"] = max(10, round(current * (1 - pct * 0.5)))
+            f["value"] = max(0, round(current * (1 - pct * 0.5)))
+        elif "Geographic Exposure" in label:
+            # The event remains geographic, but diversified routing/sourcing
+            # reduces the share still exposed to it.
+            f["value"] = max(0, round(current * (1 - pct * 0.25)))
 
     risk.factors = factors
     risk.impact = impact

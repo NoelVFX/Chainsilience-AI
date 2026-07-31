@@ -128,7 +128,10 @@ class MonteCarloService:
             # Real twin data: each qualified alternate materially improves odds.
             alt_availability = 0.05 + min(0.85, float(attrs["alt_suppliers"]) * 0.30)
         elif isinstance(factors.get("Alternative Suppliers"), (int, float)):
-            alt_availability = float(factors["Alternative Suppliers"]) / 100.0
+            # Risk-factor values are exposure contributions: higher means fewer
+            # usable alternatives and therefore *lower* availability. Convert
+            # that risk contribution back into a probability for the simulator.
+            alt_availability = 1.0 - float(factors["Alternative Suppliers"]) / 100.0
         else:
             # Last resort: a more severe risk implies fewer usable alternates.
             alt_availability = max(0.05, 1.0 - score / 100.0)
