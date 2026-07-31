@@ -68,6 +68,7 @@ def init_db() -> None:
     # Backfill columns added to already-existing tables.
     _ensure_column("risks", "scenarios")
     _ensure_column("risks", "mitigation_action_ids")
+    _ensure_column("risks", "mitigation_action_ids")
 
 
 def get_session() -> Iterator[Session]:

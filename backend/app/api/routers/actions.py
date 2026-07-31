@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import Session
 
 from app.api.deps import get_current_company_id
@@ -205,6 +206,11 @@ def _apply_mitigation_effect(
     if action.id is not None and action.id not in applied_action_ids:
         applied_action_ids.append(action.id)
     risk.mitigation_action_ids = applied_action_ids
+
+    # JSON columns are mutated in place above; SQLAlchemy does not track that, so
+    # explicitly flag them dirty or the tile/factor changes are never persisted.
+    flag_modified(risk, "impact")
+    flag_modified(risk, "factors")
 
     if apply_core_metrics:
         note = (
