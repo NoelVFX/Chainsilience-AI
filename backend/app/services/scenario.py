@@ -305,28 +305,27 @@ class ScenarioService:
             rag_chunks, rag_indexed,
             list(set(c.source for c in self.rag.chunks)) if self.rag.chunks else []
         )
-        if rag_chunks == 0:
-            logger.warning("RAG empty — no knowledge base ingested, falling back to deterministic")
-            return None
-
-        # 1. Retrieve relevant knowledge from RAG
-        rag_query = self._build_rag_query(context)
-        logger.debug("RAG query: %s", rag_query)
-        rag_results: list[RetrievalResult] = self.rag.retrieve(rag_query, top_k=5)
-        logger.info(
-            "RAG retrieved %d results for query",
-            len(rag_results)
-        )
-        for i, r in enumerate(rag_results):
-            logger.debug(
-                "RAG result %d: source=%s, score=%.3f, text_preview=%s",
-                i, r.chunk.source, r.combined_score, r.chunk.text[:100]
+        rag_context = ""
+        if rag_chunks > 0:
+            # 1. Retrieve relevant knowledge from RAG
+            rag_query = self._build_rag_query(context)
+            logger.debug("RAG query: %s", rag_query)
+            rag_results: list[RetrievalResult] = self.rag.retrieve(rag_query, top_k=5)
+            logger.info(
+                "RAG retrieved %d results for query",
+                len(rag_results)
             )
-        if not rag_results:
-            logger.warning("RAG retrieval returned empty — falling back to deterministic")
-            return None
-
-        rag_context = self._format_rag_context(rag_results)
+            for i, r in enumerate(rag_results):
+                logger.debug(
+                    "RAG result %d: source=%s, score=%.3f, text_preview=%s",
+                    i, r.chunk.source, r.combined_score, r.chunk.text[:100]
+                )
+            if rag_results:
+                rag_context = self._format_rag_context(rag_results)
+            else:
+                logger.warning("RAG retrieval returned empty — using AI-only generation")
+        else:
+            logger.warning("RAG empty — attempting AI-only generation")
 
         # 2. Build prompt with risk context + RAG knowledge
         prompt = self._build_ai_prompt(context, rag_context)
