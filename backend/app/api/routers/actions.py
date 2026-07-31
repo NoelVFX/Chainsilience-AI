@@ -85,6 +85,14 @@ def _apply_mitigation_effect(
 
     m = re.search(r"(\d{1,3})\s*%", action.estimated_benefit or "")
     pct = min(95, int(m.group(1))) / 100 if m else 0.05
+    strategy = (action.title or "").lower()
+    is_inventory_buffer = "inventory" in strategy or "buffer" in strategy
+    # A completed inventory-buffer action is specifically intended to bridge a
+    # disruption horizon, so it creates materially more effective runway than a
+    # generic mitigation. Other strategies retain the conservative baseline.
+    coverage_multiplier = 1 + pct * (2.5 if is_inventory_buffer else 0.5)
+    recovery_multiplier = 1 - pct * (0.5 if is_inventory_buffer else 0.7)
+    delay_multiplier = 1 - pct * (1.0 if is_inventory_buffer else 0.8)
 
     old_score, old_rev = risk.score, risk.revenue_at_risk
     if apply_core_metrics:
@@ -106,27 +114,29 @@ def _apply_mitigation_effect(
             m2 = re.search(r"(\d+(?:\.\d+)?)", val)
             if m2:
                 days = float(m2.group(1))
-                # Mitigation improves effective coverage (e.g., air freight adds buffer)
-                new_days = round(days * (1 + pct * 0.5))
+                # Mitigation improves effective coverage. Inventory buffers are
+                # deliberately sized to cover the disruption horizon, not just
+                # add a small percentage to the existing runway.
+                new_days = round(days * coverage_multiplier)
                 tile["value"] = f"{new_days} days"
         elif "Recovery Time" in label:
             m2 = re.search(r"(\d+(?:\.\d+)?)", val)
             if m2:
                 weeks = float(m2.group(1))
-                new_weeks = max(1, round(weeks * (1 - pct * 0.7)))
+                new_weeks = max(1, round(weeks * recovery_multiplier))
                 tile["value"] = f"{new_weeks} weeks"
         elif "Production Delay" in label:
             m2 = re.search(r"(\d+(?:\.\d+)?)", val)
             if m2:
                 days = float(m2.group(1))
-                new_days = max(1, round(days * (1 - pct * 0.8)))
+                new_days = max(1, round(days * delay_multiplier))
                 # Keep range format if present
                 if "–" in val or "-" in val:
                     m3 = re.search(r"(\d+)\D+(\d+)", val)
                     if m3:
                         low, high = int(m3.group(1)), int(m3.group(2))
-                        new_low = max(1, round(low * (1 - pct * 0.8)))
-                        new_high = max(new_low, round(high * (1 - pct * 0.8)))
+                        new_low = max(1, round(low * delay_multiplier))
+                        new_high = max(new_low, round(high * delay_multiplier))
                         tile["value"] = f"{new_low}–{new_high} days"
                     else:
                         tile["value"] = f"{new_days} days"
@@ -160,14 +170,14 @@ def _apply_mitigation_effect(
         label = f.get("label", "")
         current = float(f.get("value", 0) or 0)
         if "Event Severity" in label:
-            f["value"] = max(0, round(current * (1 - pct * 0.25)))
+            f["value"] = max(0, round(current * (1 - pct)))
         if "Alternative Suppliers" in label:
             # This is an exposure contribution: switching/qualifying alternates
             # must lower it, rather than treating the 0-100 value as a count.
-            if "switch" in (action.title or "").lower():
-                f["value"] = max(0, round(current * (1 - pct * 0.80)))
+            if "switch" in strategy:
+                f["value"] = max(0, round(current * (1 - pct * 1.20)))
             else:
-                f["value"] = max(0, round(current * (1 - pct * 0.35)))
+                f["value"] = max(0, round(current * (1 - pct)))
         elif "Inventory Coverage" in label:
             # Recalculate from the increased effective coverage, then apply the
             # mitigation residual because the coverage is no longer exposed to
@@ -179,15 +189,15 @@ def _apply_mitigation_effect(
                         days = float(m2.group(1))
                         # Factor: less coverage = higher risk contribution (0-100)
                         coverage_risk = max(0, 100 - min(days, 60) * 100 / 60)
-                        f["value"] = round(coverage_risk * (1 - pct * 0.50))
+                        f["value"] = round(coverage_risk * (1 - pct))
                     break
         elif "Supplier Dependency" in label:
             # Mitigation reduces effective dependency
-            f["value"] = max(0, round(current * (1 - pct * 0.5)))
+            f["value"] = max(0, round(current * (1 - pct)))
         elif "Geographic Exposure" in label:
             # The event remains geographic, but diversified routing/sourcing
             # reduces the share still exposed to it.
-            f["value"] = max(0, round(current * (1 - pct * 0.25)))
+            f["value"] = max(0, round(current * (1 - pct)))
 
     risk.factors = factors
     risk.impact = impact

@@ -76,7 +76,7 @@ class CompletedMitigationEffectTests(unittest.TestCase):
             id=11,
             company_id=1,
             risk_id=risk.id,
-            title="Switch Supplier — Factory disruption",
+            title="Increase Inventory Buffer — Factory disruption",
             estimated_benefit="50% risk reduction",
         )
 
@@ -100,6 +100,7 @@ class CompletedMitigationEffectTests(unittest.TestCase):
         self.assertLess(factors["Inventory Coverage"], 70)
         self.assertLess(factors["Alternative Suppliers"], 70)
         self.assertEqual(getattr(risk, "mitigation_action_ids", None), [action.id])
+        self.assertGreaterEqual(float(values["Inventory Coverage"].split()[0]), 30)
 
         after_probability = monte_carlo.stoppage_probability(
             monte_carlo.inputs_from_risk(risk, event_type="earthquake"),
@@ -107,6 +108,7 @@ class CompletedMitigationEffectTests(unittest.TestCase):
             seed=14,
         )
         self.assertLess(after_probability, before_probability)
+        self.assertLess(after_probability, 0.50)
 
     def test_legacy_completed_action_repairs_detail_metrics_without_reducing_score_twice(self) -> None:
         risk = _risk()
@@ -117,7 +119,7 @@ class CompletedMitigationEffectTests(unittest.TestCase):
             id=12,
             company_id=1,
             risk_id=risk.id,
-            title="Switch Supplier — Factory disruption",
+            title="Increase Inventory Buffer — Factory disruption",
             estimated_benefit="50% risk reduction",
         )
 
@@ -128,6 +130,7 @@ class CompletedMitigationEffectTests(unittest.TestCase):
         self.assertEqual(risk.revenue_at_risk, 500_000)
         self.assertNotEqual(values["Production Delay"], "10–20 days")
         self.assertNotEqual(values["Recovery Time"], "6 weeks")
+        self.assertGreaterEqual(float(values["Inventory Coverage"].split()[0]), 30)
         self.assertEqual(risk.mitigation_action_ids, [action.id])
 
         repaired_impact = [dict(tile) for tile in risk.impact]

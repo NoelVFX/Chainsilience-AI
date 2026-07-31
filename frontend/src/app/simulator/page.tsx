@@ -75,13 +75,21 @@ function SimulatorInner() {
     data.scenarios.find((s) => s.id === selectedId) ?? data.scenarios[0];
 
   async function handleApprove() {
-    const result = await approve.mutateAsync(selected.id);
-    if (!result.approved) {
-      // Duplicate approval — surface the rejection instead of navigating.
-      setNotice(result.message || "This scenario is already approved in the Action Center.");
-      return;
+    setNotice(null);
+    try {
+      const result = await approve.mutateAsync(selected.id);
+      if (!result.approved) {
+        // Duplicate approval — surface the rejection instead of navigating.
+        setNotice(result.message || "This scenario is already approved in the Action Center.");
+        return;
+      }
+      router.push("/action-center");
+    } catch (e) {
+      // Never leave the click doing nothing — show the real error.
+      setNotice(
+        e instanceof Error ? `Couldn't send to Action Center: ${e.message}` : "Something went wrong. Please retry.",
+      );
     }
-    router.push("/action-center");
   }
 
   return (
