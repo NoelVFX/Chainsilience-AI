@@ -32,7 +32,7 @@ export function DisruptionMap({ points }: { points: Point[] }) {
 
       {/* drag hint + legend overlay */}
       <div className="pointer-events-none absolute left-2 top-2 text-[9px] text-muted/70">
-        drag to rotate
+hover to rotate
       </div>
       <div className="pointer-events-none absolute bottom-2 right-2 flex gap-2 text-[9px] text-muted">
         {["critical", "high", "medium", "low"].map((s) => (

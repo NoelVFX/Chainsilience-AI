@@ -1,8 +1,8 @@
 "use client";
 
-import { Billboard, Line, OrbitControls } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { Billboard, Line } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { latLonToVector3, SEVERITY_COLOR } from "./latlon";
@@ -77,11 +77,52 @@ function Marker({ point }: { point: GlobePoint }) {
 /** The rotating earth: solid core, cyan wireframe shell, atmospheric rim. */
 function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const { gl } = useThree();
+  // Cursor position over the canvas (-1..1) + whether the pointer is over it.
+  const pointer = useRef({ x: 0, y: 0 });
+  const hovered = useRef(false);
+
+  // Hover-to-rotate for the foreground (dashboard) globe: move the cursor over
+  // the map to steer the earth — left/right spins it, up/down tilts it.
+  useEffect(() => {
+    if (backdrop || reducedMotion) return;
+    const el = gl.domElement;
+    const onMove = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      pointer.current = {
+        x: ((e.clientX - r.left) / r.width) * 2 - 1,
+        y: ((e.clientY - r.top) / r.height) * 2 - 1,
+      };
+    };
+    const onEnter = () => (hovered.current = true);
+    const onLeave = () => (hovered.current = false);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerenter", onEnter);
+    el.addEventListener("pointerleave", onLeave);
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerenter", onEnter);
+      el.removeEventListener("pointerleave", onLeave);
+    };
+  }, [gl, backdrop, reducedMotion]);
 
   useFrame((_, delta) => {
-    if (groupRef.current && (backdrop || reducedMotion)) {
-      // Backdrop/reduced-motion: rotate the group directly (no OrbitControls).
-      groupRef.current.rotation.y += delta * (reducedMotion ? 0.03 : 0.08);
+    const g = groupRef.current;
+    if (!g) return;
+    const d = Math.min(delta, 0.05); // clamp for tab-switch frame spikes
+    if (backdrop || reducedMotion) {
+      g.rotation.y += d * (reducedMotion ? 0.03 : 0.08);
+      return;
+    }
+    if (hovered.current) {
+      // Cursor acts like a joystick: speed/direction from its offset to centre.
+      g.rotation.y += pointer.current.x * d * 2.6;
+      const targetX = THREE.MathUtils.clamp(-pointer.current.y * 0.6, -0.6, 0.6);
+      g.rotation.x += (targetX - g.rotation.x) * Math.min(1, d * 5);
+    } else {
+      // Gentle idle spin; ease any tilt back to level.
+      g.rotation.y += d * 0.15;
+      g.rotation.x += (0 - g.rotation.x) * Math.min(1, d * 2);
     }
   });
 
@@ -168,17 +209,6 @@ export function Globe({ points, backdrop = false, reducedMotion = false }: Globe
       <directionalLight position={[5, 3, 5]} intensity={1.3} color="#bfe9ff" />
       <pointLight position={[-4, -2, -3]} intensity={0.6} color="#8b5cf6" />
       <Earth points={points} backdrop={backdrop} reducedMotion={reducedMotion} />
-      {!backdrop && !reducedMotion && (
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          autoRotate
-          autoRotateSpeed={0.55}
-          rotateSpeed={0.5}
-          minPolarAngle={Math.PI / 3}
-          maxPolarAngle={(2 * Math.PI) / 3}
-        />
-      )}
     </>
   );
 }

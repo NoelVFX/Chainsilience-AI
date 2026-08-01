@@ -58,7 +58,7 @@ function SimulatorInner() {
           Please select a risk from the Risk Details page to run the scenario simulator.
         </p>
         <button
-          onClick={() => router.push("/risk")}
+          onClick={() => router.push("/risk/1")}
           className="btn-primary px-6 py-3"
         >
           Go to Risk Details

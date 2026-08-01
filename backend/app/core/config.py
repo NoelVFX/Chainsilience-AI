@@ -68,16 +68,31 @@ class Settings(BaseSettings):
     # Curated public RSS feeds for supply-chain / trade / logistics / disaster
     # signals. Fetched live on demand; falls back to an offline sample when the
     # network is unavailable.
+    # A diverse mix: major world/business outlets (SCMP, BBC, CNN, The Economist,
+    # Al Jazeera, Guardian, NYT, Reuters, FT) plus trade/logistics specialists.
+    # The relevance agent filters each item to the company's supply-chain paths,
+    # so broad outlets are fine — irrelevant stories are dropped.
     news_rss_feeds: list[str] = [
-        "https://feeds.reuters.com/reuters/businessNews",
-        "https://www.ft.com/rss/home",
+        # Global / business news
+        "https://www.scmp.com/rss/91/feed",                       # SCMP – Asia
+        "https://feeds.bbci.co.uk/news/world/rss.xml",            # BBC World
+        "https://feeds.bbci.co.uk/news/business/rss.xml",         # BBC Business
+        "http://rss.cnn.com/rss/edition_world.rss",               # CNN World
+        "http://rss.cnn.com/rss/money_news_international.rss",     # CNN Business
+        "https://www.economist.com/finance-and-economics/rss.xml",  # The Economist
+        "https://www.aljazeera.com/xml/rss/all.xml",              # Al Jazeera
+        "https://www.theguardian.com/business/rss",               # Guardian Business
+        "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",  # NYT Business
+        "https://feeds.reuters.com/reuters/businessNews",         # Reuters Business
+        "https://www.ft.com/rss/home",                            # Financial Times
+        "https://apnews.com/hub/business?output=rss",             # AP Business
+        # Supply-chain / trade / logistics specialists
         "https://gcaptain.com/feed/",
         "https://www.freightwaves.com/feed",
         "https://splash247.com/feed/",
         "https://www.supplychaindive.com/feeds/news/",
-        "https://feeds.bbci.co.uk/news/business/rss.xml",
     ]
-    news_fetch_per_feed: int = 6
+    news_fetch_per_feed: int = 4
     news_http_timeout: float = 8.0
 
 
