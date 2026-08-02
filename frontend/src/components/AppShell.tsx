@@ -14,7 +14,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", dot: "#22d3ee" },
-  { label: "Risk Detail", href: "/risk", dot: "#f87171" },
+  { label: "Risk Detail", href: "/risk/1", dot: "#f87171" },
   { label: "Scenario Simulator", href: "/simulator", dot: "#fbbf24" },
   { label: "Action Center", href: "/action-center", dot: "#34d399" },
 ];
@@ -31,7 +31,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!getToken()) router.replace("/login");
   }, [router]);
 
-  const isActive = (href: string) => pathname.startsWith(href);
+  const isActive = (href: string) =>
+    href.startsWith("/risk") ? pathname.startsWith("/risk") : pathname.startsWith(href);
 
   return (
     <div className="relative flex min-h-screen overflow-hidden">

@@ -82,46 +82,52 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
   const pointer = useRef({ x: 0, y: 0 });
   const hovered = useRef(false);
 
-  // Hover-to-rotate for the foreground (dashboard) globe: move the cursor over
-  // the map to steer the earth — left/right spins it, up/down tilts it.
+  // Hover-to-rotate for the foreground (dashboard) globe: the cursor position
+  // over the map maps directly to the earth's orientation (a hover-drag).
+  // Attached regardless of reduced-motion, since it's user-initiated.
   useEffect(() => {
-    if (backdrop || reducedMotion) return;
+    if (backdrop) return;
     const el = gl.domElement;
     const onMove = (e: PointerEvent) => {
       const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return;
       pointer.current = {
-        x: ((e.clientX - r.left) / r.width) * 2 - 1,
-        y: ((e.clientY - r.top) / r.height) * 2 - 1,
+        x: ((e.clientX - r.left) / r.width) * 2 - 1, // -1 (left) .. 1 (right)
+        y: ((e.clientY - r.top) / r.height) * 2 - 1, // -1 (top) .. 1 (bottom)
       };
+      hovered.current = true;
     };
-    const onEnter = () => (hovered.current = true);
     const onLeave = () => (hovered.current = false);
+    el.style.touchAction = "none";
     el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerenter", onEnter);
     el.addEventListener("pointerleave", onLeave);
+    el.addEventListener("pointerout", onLeave);
     return () => {
       el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerenter", onEnter);
       el.removeEventListener("pointerleave", onLeave);
+      el.removeEventListener("pointerout", onLeave);
     };
-  }, [gl, backdrop, reducedMotion]);
+  }, [gl, backdrop]);
 
   useFrame((_, delta) => {
     const g = groupRef.current;
     if (!g) return;
     const d = Math.min(delta, 0.05); // clamp for tab-switch frame spikes
-    if (backdrop || reducedMotion) {
+
+    if (backdrop) {
       g.rotation.y += d * (reducedMotion ? 0.03 : 0.08);
       return;
     }
+
     if (hovered.current) {
-      // Cursor acts like a joystick: speed/direction from its offset to centre.
-      g.rotation.y += pointer.current.x * d * 2.6;
-      const targetX = THREE.MathUtils.clamp(-pointer.current.y * 0.6, -0.6, 0.6);
-      g.rotation.x += (targetX - g.rotation.x) * Math.min(1, d * 5);
-    } else {
-      // Gentle idle spin; ease any tilt back to level.
-      g.rotation.y += d * 0.15;
+      // Direct mapping: cursor left/right ⇒ spin, up/down ⇒ tilt. Lerp for smooth.
+      const targetY = pointer.current.x * Math.PI * 0.9;
+      const targetX = THREE.MathUtils.clamp(-pointer.current.y * 0.55, -0.55, 0.55);
+      g.rotation.y += (targetY - g.rotation.y) * Math.min(1, d * 6);
+      g.rotation.x += (targetX - g.rotation.x) * Math.min(1, d * 6);
+    } else if (!reducedMotion) {
+      // Idle: a gentle spin so it reads as live; tilt eases back to level.
+      g.rotation.y += d * 0.12;
       g.rotation.x += (0 - g.rotation.x) * Math.min(1, d * 2);
     }
   });

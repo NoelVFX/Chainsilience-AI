@@ -68,8 +68,14 @@ export function GlobeMount({ points, backdrop = false, fallback = null, classNam
       const host = hostRef.current;
       const canvas = host?.querySelector("canvas") as HTMLCanvasElement | null;
       const parent = canvas?.parentElement;
-      if (canvas && parent && parent.clientWidth > 0) {
-        if (canvas.clientWidth !== parent.clientWidth) {
+      if (canvas && parent && parent.clientWidth > 0 && parent.clientHeight > 0) {
+        // Check BOTH dimensions — the canvas can match width but keep its default
+        // 150px height, which would leave the globe clipped and half the card
+        // non-interactive.
+        if (
+          canvas.clientWidth !== parent.clientWidth ||
+          canvas.clientHeight !== parent.clientHeight
+        ) {
           window.dispatchEvent(new Event("resize"));
         } else {
           window.clearInterval(id); // correctly sized — done
