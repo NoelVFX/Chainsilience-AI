@@ -78,34 +78,59 @@ function Marker({ point }: { point: GlobePoint }) {
 function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
   const groupRef = useRef<THREE.Group>(null);
   const { gl } = useThree();
-  // Cursor position over the canvas (-1..1) + whether the pointer is over it.
-  const pointer = useRef({ x: 0, y: 0 });
-  const hovered = useRef(false);
+  const dragging = useRef(false);
+  const last = useRef({ x: 0, y: 0 });
+  // Leftover angular velocity (rad/frame) for a little spin-down after release.
+  const velocity = useRef({ x: 0, y: 0 });
 
-  // Hover-to-rotate for the foreground (dashboard) globe: the cursor position
-  // over the map maps directly to the earth's orientation (a hover-drag).
-  // Attached regardless of reduced-motion, since it's user-initiated.
+  // Drag-to-rotate for the foreground (dashboard) globe: press and drag to spin
+  // (horizontal) and tilt (vertical). Rotation is applied directly on the group
+  // in the pointer handler so it tracks the cursor 1:1; releasing keeps a bit of
+  // inertia. Attached regardless of reduced-motion — it's user-initiated.
   useEffect(() => {
     if (backdrop) return;
     const el = gl.domElement;
-    const onMove = (e: PointerEvent) => {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return;
-      pointer.current = {
-        x: ((e.clientX - r.left) / r.width) * 2 - 1, // -1 (left) .. 1 (right)
-        y: ((e.clientY - r.top) / r.height) * 2 - 1, // -1 (top) .. 1 (bottom)
-      };
-      hovered.current = true;
-    };
-    const onLeave = () => (hovered.current = false);
     el.style.touchAction = "none";
+    el.style.cursor = "grab";
+    const ROT = 0.006; // radians of rotation per pixel dragged
+
+    const onDown = (e: PointerEvent) => {
+      dragging.current = true;
+      last.current = { x: e.clientX, y: e.clientY };
+      velocity.current = { x: 0, y: 0 };
+      el.style.cursor = "grabbing";
+      el.setPointerCapture?.(e.pointerId);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      const dx = e.clientX - last.current.x;
+      const dy = e.clientY - last.current.y;
+      last.current = { x: e.clientX, y: e.clientY };
+      const g = groupRef.current;
+      if (g) {
+        g.rotation.y += dx * ROT;
+        g.rotation.x = THREE.MathUtils.clamp(g.rotation.x + dy * ROT, -0.6, 0.6);
+      }
+      velocity.current = { x: dy * ROT, y: dx * ROT };
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      el.style.cursor = "grab";
+      el.releasePointerCapture?.(e.pointerId);
+    };
+    el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerleave", onLeave);
-    el.addEventListener("pointerout", onLeave);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    el.addEventListener("pointerleave", onUp);
     return () => {
+      el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerleave", onLeave);
-      el.removeEventListener("pointerout", onLeave);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("pointerleave", onUp);
+      el.style.cursor = "";
     };
   }, [gl, backdrop]);
 
@@ -119,16 +144,20 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
       return;
     }
 
-    if (hovered.current) {
-      // Direct mapping: cursor left/right ⇒ spin, up/down ⇒ tilt. Lerp for smooth.
-      const targetY = pointer.current.x * Math.PI * 0.9;
-      const targetX = THREE.MathUtils.clamp(-pointer.current.y * 0.55, -0.55, 0.55);
-      g.rotation.y += (targetY - g.rotation.y) * Math.min(1, d * 6);
-      g.rotation.x += (targetX - g.rotation.x) * Math.min(1, d * 6);
+    if (dragging.current) return; // user is actively dragging — hands off
+
+    const v = velocity.current;
+    if (Math.abs(v.y) > 0.0002 || Math.abs(v.x) > 0.0002) {
+      // Inertia: keep spinning from the release velocity, decaying to rest.
+      g.rotation.y += v.y;
+      g.rotation.x = THREE.MathUtils.clamp(g.rotation.x + v.x, -0.6, 0.6);
+      const decay = Math.pow(0.94, d * 60);
+      v.y *= decay;
+      v.x *= decay;
     } else if (!reducedMotion) {
-      // Idle: a gentle spin so it reads as live; tilt eases back to level.
-      g.rotation.y += d * 0.12;
-      g.rotation.x += (0 - g.rotation.x) * Math.min(1, d * 2);
+      // Idle: a gentle drift so it reads as live; tilt eases back to level.
+      g.rotation.y += d * 0.08;
+      g.rotation.x += (0 - g.rotation.x) * Math.min(1, d * 1.5);
     }
   });
 
