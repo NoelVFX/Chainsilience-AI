@@ -40,7 +40,11 @@ export function GlobeMount({ points, backdrop = false, fallback = null, classNam
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
   const [supported, setSupported] = useState(true);
+  const [lowEnd, setLowEnd] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  // Render loop runs only while the globe is on-screen AND the tab is visible,
+  // so a decorative globe never burns GPU frames in the background.
+  const [active, setActive] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -54,7 +58,37 @@ export function GlobeMount({ points, backdrop = false, fallback = null, classNam
     setReducedMotion(
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
     );
-  }, []);
+    // Skip WebGL entirely on genuinely weak devices — this also means three.js
+    // is never even downloaded/parsed there. Foreground globe only; the
+    // decorative backdrop is cheap enough to keep.
+    if (!backdrop) {
+      const nav = navigator as Navigator & { deviceMemory?: number };
+      const cores = nav.hardwareConcurrency ?? 8;
+      const mem = nav.deviceMemory ?? 8;
+      const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+      if (cores <= 4 || mem <= 4 || coarse) setLowEnd(true);
+    }
+  }, [backdrop]);
+
+  // Pause when the globe scrolls out of view or the tab is hidden.
+  useEffect(() => {
+    if (!mounted || !supported || lowEnd) return;
+    const host = hostRef.current;
+    if (!host) return;
+    const onVisibility = () => {
+      if (document.hidden) setActive(false);
+    };
+    const io = new IntersectionObserver(
+      ([entry]) => setActive(entry.isIntersecting && !document.hidden),
+      { threshold: 0.01 },
+    );
+    io.observe(host);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      io.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [mounted, supported, lowEnd]);
 
   // The <Canvas> is code-split (dynamic import) and mounts after this component,
   // possibly after a slow first chunk load. R3F sometimes measures its container
@@ -62,7 +96,7 @@ export function GlobeMount({ points, backdrop = false, fallback = null, classNam
   // this instance) until the canvas appears, and while it is smaller than its
   // container dispatch a resize so R3F (react-use-measure) re-measures.
   useEffect(() => {
-    if (!mounted || !supported) return;
+    if (!mounted || !supported || lowEnd) return;
     const started = Date.now();
     const id = window.setInterval(() => {
       const host = hostRef.current;
@@ -85,15 +119,20 @@ export function GlobeMount({ points, backdrop = false, fallback = null, classNam
       if (Date.now() - started > 10_000) window.clearInterval(id); // give up after 10s
     }, 150);
     return () => window.clearInterval(id);
-  }, [mounted, supported]);
+  }, [mounted, supported, lowEnd]);
 
   if (!mounted) return <>{fallback}</>;
-  if (!supported) return <>{fallback}</>;
+  if (!supported || lowEnd) return <>{fallback}</>;
 
   return (
     <div ref={hostRef} className={className} style={{ width: "100%", height: "100%" }}>
       <WebGLBoundary fallback={fallback}>
-        <GlobeCanvas points={points} backdrop={backdrop} reducedMotion={reducedMotion} />
+        <GlobeCanvas
+          points={points}
+          backdrop={backdrop}
+          reducedMotion={reducedMotion}
+          frameloop={active ? "always" : "never"}
+        />
       </WebGLBoundary>
     </div>
   );
