@@ -25,9 +25,9 @@ services:
         fromDatabase:
           name: chainsight-db
           property: connectionString
-      # Replace with your real Vercel domain(s) once the frontend is deployed.
+      # Must match the frontend's real Vercel domain(s) exactly (scheme + host).
       - key: CORS_ORIGINS
-        value: '["https://chainsight-ai.vercel.app"]'
+        value: '["https://chainsilience-ai.vercel.app"]'
       # Optional: enable live LLM calls.
       # - key: OPENAI_API_KEY
       #   sync: false
