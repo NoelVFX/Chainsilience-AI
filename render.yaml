@@ -31,3 +31,12 @@ services:
       # Optional: enable live LLM calls.
       # - key: OPENAI_API_KEY
       #   sync: false
+      # Optional: send real sign-up verification emails. Without these the 6-digit
+      # code is shown on-screen (dev hint) since ENVIRONMENT defaults to
+      # development. Set all three (values hidden) to email codes instead.
+      # - key: SMTP_HOST
+      #   sync: false
+      # - key: SMTP_USER
+      #   sync: false
+      # - key: SMTP_PASSWORD
+      #   sync: false
