@@ -103,6 +103,25 @@ class User(SQLModel, table=True):
     company: Optional[Company] = Relationship(back_populates="users")
 
 
+class EmailOtp(SQLModel, table=True):
+    """A one-time verification code emailed during sign-up.
+
+    The code itself is never stored — only an HMAC hash. A short expiry plus an
+    attempt counter bound brute-force. Marked ``verified`` once the correct code
+    is entered, which is what gates account registration.
+    """
+
+    __tablename__ = "email_otps"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    code_hash: str
+    expires_at: datetime
+    attempts: int = 0
+    verified: bool = False
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 class Node(SQLModel, table=True):
     """A Digital Twin node (supplier, factory, product, ...)."""
 

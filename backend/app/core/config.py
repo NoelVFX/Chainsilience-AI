@@ -64,6 +64,27 @@ class Settings(BaseSettings):
     ai_request_timeout: float = 45.0
     ai_max_tokens: int = 1200
 
+    # --- Email / OTP ----------------------------------------------------------
+    # Transactional email for sign-up verification codes. When SMTP is not
+    # configured the mailer degrades gracefully: it logs the code server-side
+    # and (outside production) returns it in the API response so the flow is
+    # fully testable with zero email infrastructure.
+    #
+    # For real delivery set SMTP_HOST/SMTP_USER/SMTP_PASSWORD (e.g. a Gmail app
+    # password, SendGrid, Mailgun, Postmark). smtp_use_tls=True uses STARTTLS on
+    # port 587; set it False to use implicit SSL on port 465.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None  # defaults to smtp_user
+    smtp_use_tls: bool = True
+
+    # 6-digit code, valid for 10 minutes, max 5 wrong tries before re-request.
+    otp_length: int = 6
+    otp_ttl_seconds: int = 600
+    otp_max_attempts: int = 5
+
     # --- News scraping --------------------------------------------------------
     # Curated public RSS feeds for supply-chain / trade / logistics / disaster
     # signals. Fetched live on demand; falls back to an offline sample when the

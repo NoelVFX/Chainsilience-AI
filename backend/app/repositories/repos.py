@@ -16,6 +16,7 @@ from app.models.entities import (
     Company,
     Edge,
     EmailDraft,
+    EmailOtp,
     Event,
     Feedback,
     NewsItem,
@@ -40,6 +41,41 @@ class UserRepository:
         self.session.commit()
         self.session.refresh(user)
         return user
+
+
+class EmailOtpRepository:
+    """One-time sign-up codes, keyed by email (at most one live row per email)."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_email(self, email: str) -> EmailOtp | None:
+        return self.session.exec(
+            select(EmailOtp).where(EmailOtp.email == email).order_by(EmailOtp.id.desc())
+        ).first()
+
+    def replace_for_email(
+        self, email: str, code_hash: str, expires_at: datetime
+    ) -> EmailOtp:
+        """Drop any prior codes for this email and store a fresh one."""
+        self.delete_for_email(email, commit=False)
+        otp = EmailOtp(email=email, code_hash=code_hash, expires_at=expires_at)
+        self.session.add(otp)
+        self.session.commit()
+        self.session.refresh(otp)
+        return otp
+
+    def save(self, otp: EmailOtp) -> EmailOtp:
+        self.session.add(otp)
+        self.session.commit()
+        self.session.refresh(otp)
+        return otp
+
+    def delete_for_email(self, email: str, commit: bool = True) -> None:
+        for row in self.session.exec(select(EmailOtp).where(EmailOtp.email == email)).all():
+            self.session.delete(row)
+        if commit:
+            self.session.commit()
 
 
 class CompanyRepository:

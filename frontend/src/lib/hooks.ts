@@ -29,6 +29,29 @@ export function useLogin() {
   });
 }
 
+export interface RequestOtpResult {
+  sent: boolean;
+  delivered: boolean;
+  expires_in: number;
+  dev_code?: string | null;
+}
+
+/** Ask the backend to email a 6-digit sign-up verification code. */
+export function useRequestOtp() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      api.post<RequestOtpResult>("/auth/request-otp", { email }),
+  });
+}
+
+/** Verify the code the user entered; unlocks account registration. */
+export function useVerifyOtp() {
+  return useMutation({
+    mutationFn: (vars: { email: string; code: string }) =>
+      api.post<{ verified: boolean }>("/auth/verify-otp", vars),
+  });
+}
+
 export function useRegister() {
   return useMutation({
     mutationFn: (payload: {

@@ -1,23 +1,119 @@
-"""Authentication endpoints: register, login, forgot-password, current user."""
+"""Authentication endpoints: register, login, email OTP, current user."""
 from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from app.api.deps import get_current_user
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.config import settings
+from app.core.security import (
+    create_access_token,
+    generate_otp_code,
+    hash_otp,
+    hash_password,
+    verify_otp_hash,
+    verify_password,
+)
 from app.db.session import get_session
 from app.models.entities import Company, User, UserRole
-from app.repositories import CompanyRepository, UserRepository
+from app.repositories import CompanyRepository, EmailOtpRepository, UserRepository
 from app.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
     RegisterRequest,
+    RequestOtpRequest,
+    RequestOtpResponse,
     TokenResponse,
     UserResponse,
+    VerifyOtpRequest,
+    VerifyOtpResponse,
 )
+from app.services.mailer import send_otp_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _norm_email(email: str) -> str:
+    """Canonical form for OTP lookups so request/verify/register always agree."""
+    return email.strip().lower()
+
+
+def _is_expired(expires_at: datetime) -> bool:
+    """Compare an expiry against now, tolerating naive (SQLite/Postgres) values."""
+    now = datetime.now(timezone.utc)
+    if expires_at.tzinfo is None:
+        now = now.replace(tzinfo=None)
+    return expires_at < now
+
+
+@router.post("/request-otp", response_model=RequestOtpResponse)
+def request_otp(
+    payload: RequestOtpRequest, session: Session = Depends(get_session)
+) -> RequestOtpResponse:
+    """Email a fresh 6-digit verification code for a pending sign-up.
+
+    Rejects addresses that already have an account so the caller can steer the
+    user to sign in instead. Any previous code for the address is invalidated.
+    """
+    email = _norm_email(payload.email)
+    if UserRepository(session).get_by_email(email):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+
+    code = generate_otp_code()
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.otp_ttl_seconds)
+    EmailOtpRepository(session).replace_for_email(email, hash_otp(code), expires_at)
+
+    delivered = send_otp_email(email, code)
+    dev_code = code if (not delivered and settings.environment != "production") else None
+    return RequestOtpResponse(
+        sent=True,
+        delivered=delivered,
+        expires_in=settings.otp_ttl_seconds,
+        dev_code=dev_code,
+    )
+
+
+@router.post("/verify-otp", response_model=VerifyOtpResponse)
+def verify_otp(
+    payload: VerifyOtpRequest, session: Session = Depends(get_session)
+) -> VerifyOtpResponse:
+    """Check a submitted code, marking the email verified so it may register."""
+    email = _norm_email(payload.email)
+    repo = EmailOtpRepository(session)
+    otp = repo.get_by_email(email)
+
+    if otp is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "No verification code found. Please request a new one.",
+        )
+    if _is_expired(otp.expires_at):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Verification code expired. Please request a new one.",
+        )
+    if otp.attempts >= settings.otp_max_attempts:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many attempts. Please request a new code.",
+        )
+    if not verify_otp_hash(payload.code.strip(), otp.code_hash):
+        otp.attempts += 1
+        repo.save(otp)
+        remaining = max(0, settings.otp_max_attempts - otp.attempts)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Incorrect code. {remaining} attempt(s) left.",
+        )
+
+    # Correct: mark verified and refresh the window so the follow-up register
+    # call (moments later) still finds a live, verified code.
+    otp.verified = True
+    otp.expires_at = datetime.now(timezone.utc) + timedelta(seconds=settings.otp_ttl_seconds)
+    repo.save(otp)
+    return VerifyOtpResponse(verified=True)
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
@@ -25,6 +121,15 @@ def register(payload: RegisterRequest, session: Session = Depends(get_session)) 
     users = UserRepository(session)
     if users.get_by_email(payload.email):
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+
+    # Gate: the email must have passed OTP verification first.
+    otp_repo = EmailOtpRepository(session)
+    otp = otp_repo.get_by_email(_norm_email(payload.email))
+    if otp is None or not otp.verified or _is_expired(otp.expires_at):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Email not verified. Please verify the code sent to your email.",
+        )
 
     company_id: int | None = None
     if payload.company_name:
@@ -40,6 +145,8 @@ def register(payload: RegisterRequest, session: Session = Depends(get_session)) 
             company_id=company_id,
         )
     )
+    # Verification consumed — the code can't be replayed for another account.
+    otp_repo.delete_for_email(_norm_email(payload.email))
     token = create_access_token(user.id, {"role": user.role.value})
     return TokenResponse(access_token=token, user=UserResponse.model_validate(user))
 

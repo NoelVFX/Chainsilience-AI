@@ -5,6 +5,9 @@ Windows/macOS/Linux and PyJWT for stateless bearer tokens.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -24,6 +27,22 @@ def hash_password(plain: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     """Constant-time verification of a plaintext password against its hash."""
     return _pwd_context.verify(plain, hashed)
+
+
+def generate_otp_code(length: int | None = None) -> str:
+    """Return a cryptographically-random numeric one-time code (zero-padded)."""
+    n = length or settings.otp_length
+    return f"{secrets.randbelow(10 ** n):0{n}d}"
+
+
+def hash_otp(code: str) -> str:
+    """Keyed HMAC-SHA256 of an OTP so the plaintext code is never persisted."""
+    return hmac.new(settings.secret_key.encode(), code.encode(), hashlib.sha256).hexdigest()
+
+
+def verify_otp_hash(code: str, hashed: str) -> bool:
+    """Constant-time comparison of a submitted code against its stored hash."""
+    return hmac.compare_digest(hash_otp(code), hashed)
 
 
 def create_access_token(subject: str, extra_claims: dict[str, Any] | None = None) -> str:
