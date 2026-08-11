@@ -52,6 +52,27 @@ export function useVerifyOtp() {
   });
 }
 
+export interface ForgotPasswordResult {
+  message: string;
+  dev_reset_url?: string | null;
+}
+
+/** Request a password-reset link be emailed to the address. */
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) =>
+      api.post<ForgotPasswordResult>("/auth/forgot-password", { email }),
+  });
+}
+
+/** Set a new password using the token from the emailed reset link. */
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (vars: { token: string; new_password: string }) =>
+      api.post<{ reset: boolean }>("/auth/reset-password", vars),
+  });
+}
+
 export function useRegister() {
   return useMutation({
     mutationFn: (payload: {

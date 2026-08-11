@@ -22,6 +22,24 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
+class ForgotPasswordResponse(BaseModel):
+    # Always the same generic message so the endpoint never reveals whether an
+    # account exists for the address.
+    message: str
+    # Only populated outside production when SMTP isn't configured, so the reset
+    # flow stays testable without real email infrastructure.
+    dev_reset_url: str | None = None
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=16)
+    new_password: str = Field(min_length=6)
+
+
+class ResetPasswordResponse(BaseModel):
+    reset: bool
+
+
 class RequestOtpRequest(BaseModel):
     email: EmailStr
 

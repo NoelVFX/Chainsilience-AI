@@ -24,6 +24,62 @@ def smtp_configured() -> bool:
     return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
 
 
+def _dispatch(to_email: str, subject: str, body: str, log_label: str, dev_line: str) -> bool:
+    """Send one plaintext email, or dev-log it when SMTP isn't configured.
+
+    Returns True if actually sent via SMTP, False on the dev-log fallback.
+    """
+    if not smtp_configured():
+        logger.info("[%s] (dev — no SMTP configured) %s", log_label, dev_line)
+        return False
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = settings.smtp_from or settings.smtp_user
+    msg["To"] = to_email
+    msg.set_content(body)
+
+    try:
+        if settings.smtp_use_tls:
+            context = ssl.create_default_context()
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                server.starttls(context=context)
+                server.login(settings.smtp_user, settings.smtp_password)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                server.login(settings.smtp_user, settings.smtp_password)
+                server.send_message(msg)
+        logger.info("[%s] sent email to %s via SMTP", log_label, to_email)
+        return True
+    except Exception as exc:  # noqa: BLE001 — never let email failure break the flow
+        logger.warning(
+            "[%s] SMTP send to %s failed (%s); falling back to dev log", log_label, to_email, exc
+        )
+        logger.info("[%s] (dev fallback) %s", log_label, dev_line)
+        return False
+
+
+def send_password_reset_email(to_email: str, reset_url: str) -> bool:
+    """Email a password-reset link. Returns True if actually sent via SMTP."""
+    minutes = max(1, settings.reset_token_ttl_seconds // 60)
+    subject = f"Reset your {settings.app_name} password"
+    body = (
+        f"We received a request to reset your {settings.app_name} password.\n\n"
+        f"Reset it here (link valid for {minutes} minutes):\n\n"
+        f"    {reset_url}\n\n"
+        f"If you didn't request this, you can safely ignore this email — your "
+        f"password won't change."
+    )
+    return _dispatch(
+        to_email,
+        subject,
+        body,
+        log_label="RESET",
+        dev_line=f"reset link for {to_email}: {reset_url}",
+    )
+
+
 def send_otp_email(to_email: str, code: str) -> bool:
     """Email a verification ``code`` to ``to_email``.
 

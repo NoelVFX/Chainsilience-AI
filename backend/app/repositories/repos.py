@@ -21,6 +21,7 @@ from app.models.entities import (
     Feedback,
     NewsItem,
     Node,
+    PasswordResetToken,
     Risk,
     User,
 )
@@ -41,6 +42,49 @@ class UserRepository:
         self.session.commit()
         self.session.refresh(user)
         return user
+
+    def update(self, user: User) -> User:
+        self.session.add(user)
+        self.session.commit()
+        self.session.refresh(user)
+        return user
+
+
+class PasswordResetTokenRepository:
+    """Single-use password-reset tokens (at most one live token per user)."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_by_hash(self, token_hash: str) -> PasswordResetToken | None:
+        return self.session.exec(
+            select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
+        ).first()
+
+    def replace_for_user(
+        self, user_id: int, token_hash: str, expires_at: datetime
+    ) -> PasswordResetToken:
+        """Invalidate any prior tokens for this user and store a fresh one."""
+        self.delete_for_user(user_id, commit=False)
+        row = PasswordResetToken(
+            user_id=user_id, token_hash=token_hash, expires_at=expires_at
+        )
+        self.session.add(row)
+        self.session.commit()
+        self.session.refresh(row)
+        return row
+
+    def delete(self, row: PasswordResetToken) -> None:
+        self.session.delete(row)
+        self.session.commit()
+
+    def delete_for_user(self, user_id: int, commit: bool = True) -> None:
+        for row in self.session.exec(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == user_id)
+        ).all():
+            self.session.delete(row)
+        if commit:
+            self.session.commit()
 
 
 class EmailOtpRepository:

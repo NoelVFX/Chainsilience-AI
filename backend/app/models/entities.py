@@ -122,6 +122,22 @@ class EmailOtp(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
 
 
+class PasswordResetToken(SQLModel, table=True):
+    """A single-use password-reset token, emailed as a link.
+
+    Only the token's HMAC hash is stored. Short expiry; consumed (deleted) on a
+    successful reset and superseded whenever a new reset is requested.
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    token_hash: str = Field(index=True)
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 class Node(SQLModel, table=True):
     """A Digital Twin node (supplier, factory, product, ...)."""
 

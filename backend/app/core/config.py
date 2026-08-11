@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     otp_ttl_seconds: int = 600
     otp_max_attempts: int = 5
 
+    # Base URL of the frontend, used to build the password-reset link in emails.
+    # Set FRONTEND_BASE_URL to the Vercel domain in production.
+    frontend_base_url: str = "http://localhost:3000"
+    # Password-reset links are valid for 30 minutes.
+    reset_token_ttl_seconds: int = 1800
+
     # --- News scraping --------------------------------------------------------
     # Curated public RSS feeds for supply-chain / trade / logistics / disaster
     # signals. Fetched live on demand; falls back to an offline sample when the

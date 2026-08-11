@@ -29,6 +29,11 @@ def verify_password(plain: str, hashed: str) -> bool:
     return _pwd_context.verify(plain, hashed)
 
 
+def _hmac(value: str) -> str:
+    """Keyed HMAC-SHA256 so short-lived secrets are never persisted in plaintext."""
+    return hmac.new(settings.secret_key.encode(), value.encode(), hashlib.sha256).hexdigest()
+
+
 def generate_otp_code(length: int | None = None) -> str:
     """Return a cryptographically-random numeric one-time code (zero-padded)."""
     n = length or settings.otp_length
@@ -37,12 +42,27 @@ def generate_otp_code(length: int | None = None) -> str:
 
 def hash_otp(code: str) -> str:
     """Keyed HMAC-SHA256 of an OTP so the plaintext code is never persisted."""
-    return hmac.new(settings.secret_key.encode(), code.encode(), hashlib.sha256).hexdigest()
+    return _hmac(code)
 
 
 def verify_otp_hash(code: str, hashed: str) -> bool:
     """Constant-time comparison of a submitted code against its stored hash."""
-    return hmac.compare_digest(hash_otp(code), hashed)
+    return hmac.compare_digest(_hmac(code), hashed)
+
+
+def generate_reset_token() -> str:
+    """Return a high-entropy, URL-safe token for a password-reset link."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """Keyed HMAC-SHA256 of a reset token so only its hash is stored."""
+    return _hmac(token)
+
+
+def verify_token_hash(token: str, hashed: str) -> bool:
+    """Constant-time comparison of a submitted reset token against its hash."""
+    return hmac.compare_digest(_hmac(token), hashed)
 
 
 def create_access_token(subject: str, extra_claims: dict[str, Any] | None = None) -> str:

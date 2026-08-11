@@ -28,6 +28,10 @@ services:
       # Must match the frontend's real Vercel domain(s) exactly (scheme + host).
       - key: CORS_ORIGINS
         value: '["https://chainsilience-ai.vercel.app"]'
+      # Base URL used to build the password-reset link in emails — must be the
+      # frontend's real domain, not localhost.
+      - key: FRONTEND_BASE_URL
+        value: "https://chainsilience-ai.vercel.app"
       # Optional: enable live LLM calls.
       # - key: OPENAI_API_KEY
       #   sync: false

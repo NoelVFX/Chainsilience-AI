@@ -11,26 +11,36 @@ from app.core.config import settings
 from app.core.security import (
     create_access_token,
     generate_otp_code,
+    generate_reset_token,
     hash_otp,
     hash_password,
+    hash_token,
     verify_otp_hash,
     verify_password,
 )
 from app.db.session import get_session
 from app.models.entities import Company, User, UserRole
-from app.repositories import CompanyRepository, EmailOtpRepository, UserRepository
+from app.repositories import (
+    CompanyRepository,
+    EmailOtpRepository,
+    PasswordResetTokenRepository,
+    UserRepository,
+)
 from app.schemas.auth import (
     ForgotPasswordRequest,
+    ForgotPasswordResponse,
     LoginRequest,
     RegisterRequest,
     RequestOtpRequest,
     RequestOtpResponse,
+    ResetPasswordRequest,
+    ResetPasswordResponse,
     TokenResponse,
     UserResponse,
     VerifyOtpRequest,
     VerifyOtpResponse,
 )
-from app.services.mailer import send_otp_email
+from app.services.mailer import send_otp_email, send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -160,11 +170,65 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)) -> Tok
     return TokenResponse(access_token=token, user=UserResponse.model_validate(user))
 
 
-@router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest) -> dict:
-    # MVP: always return success without leaking whether the email exists.
-    # A production build would enqueue a reset email via the alert system.
-    return {"message": "If an account exists, a reset link has been sent."}
+_GENERIC_RESET_MESSAGE = "If an account exists for that email, a reset link has been sent."
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(
+    payload: ForgotPasswordRequest, session: Session = Depends(get_session)
+) -> ForgotPasswordResponse:
+    """Email a password-reset link.
+
+    Always returns the same generic message so the response never reveals
+    whether an account exists. When a user is found, a single-use token is
+    generated (superseding any prior one) and a reset link is emailed.
+    """
+    email = _norm_email(payload.email)
+    user = UserRepository(session).get_by_email(email)
+
+    dev_reset_url: str | None = None
+    if user is not None:
+        raw_token = generate_reset_token()
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            seconds=settings.reset_token_ttl_seconds
+        )
+        PasswordResetTokenRepository(session).replace_for_user(
+            user.id, hash_token(raw_token), expires_at
+        )
+        reset_url = f"{settings.frontend_base_url.rstrip('/')}/reset-password?token={raw_token}"
+        delivered = send_password_reset_email(email, reset_url)
+        if not delivered and settings.environment != "production":
+            dev_reset_url = reset_url
+
+    return ForgotPasswordResponse(message=_GENERIC_RESET_MESSAGE, dev_reset_url=dev_reset_url)
+
+
+@router.post("/reset-password", response_model=ResetPasswordResponse)
+def reset_password(
+    payload: ResetPasswordRequest, session: Session = Depends(get_session)
+) -> ResetPasswordResponse:
+    """Set a new password given a valid, unexpired reset token."""
+    repo = PasswordResetTokenRepository(session)
+    row = repo.get_by_hash(hash_token(payload.token.strip()))
+    if row is None or _is_expired(row.expires_at):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "This reset link is invalid or has expired. Please request a new one.",
+        )
+
+    users = UserRepository(session)
+    user = users.get(row.user_id)
+    if user is None:
+        repo.delete(row)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "This reset link is invalid or has expired. Please request a new one.",
+        )
+
+    user.hashed_password = hash_password(payload.new_password)
+    users.update(user)
+    repo.delete(row)  # single-use: consume the token
+    return ResetPasswordResponse(reset=True)
 
 
 @router.get("/me", response_model=UserResponse)

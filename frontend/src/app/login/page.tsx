@@ -90,7 +90,10 @@ export default function LoginPage() {
             />
           </div>
           <div className="-mt-1.5 flex justify-end">
-            <span className="cursor-pointer text-xs text-muted hover:text-text">
+            <span
+              onClick={() => router.push("/forgot-password")}
+              className="cursor-pointer text-xs text-muted hover:text-text"
+            >
               Forgot password?
             </span>
           </div>
