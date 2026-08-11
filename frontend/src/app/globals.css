@@ -67,6 +67,14 @@ a:hover {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
   50% { transform: translate3d(-25px, 25px, 0) rotate(-6deg); }
 }
+@keyframes hueBlur20 {
+  0%, 100% { filter: blur(20px) hue-rotate(0deg); }
+  50% { filter: blur(20px) hue-rotate(70deg); }
+}
+@keyframes hueBlur30 {
+  0%, 100% { filter: blur(30px) hue-rotate(0deg); }
+  50% { filter: blur(30px) hue-rotate(70deg); }
+}
 
 /* Reusable component classes -------------------------------------------------- */
 @layer components {
@@ -357,10 +365,8 @@ a:hover {
     hsl(0 0 4%) 2px
   );
   background-size: 8px 8px;
-  /* Static backdrop-filter is rasterized once; animating it (the old hueRotate)
-     forced a full-screen backdrop re-sample every frame — very costly on weak
-     GPUs. Kept static for the glow without the per-frame cost. */
   backdrop-filter: blur(1em) brightness(6);
+  animation: hueRotate 10s linear infinite;
 }
 
 @keyframes rainFall {
@@ -444,11 +450,11 @@ a:hover {
   }
 }
 
-/* Honour users who ask for less motion: drop the continuous decorative
-   animations (they're the most GPU-costly and purely cosmetic). */
-@media (prefers-reduced-motion: reduce) {
-  .orb,
-  .rain-bg {
-    animation: none !important;
+@keyframes hueRotate {
+  0% {
+    backdrop-filter: blur(1em) brightness(6) hue-rotate(0deg);
+  }
+  to {
+    backdrop-filter: blur(1em) brightness(6) hue-rotate(360deg);
   }
 }

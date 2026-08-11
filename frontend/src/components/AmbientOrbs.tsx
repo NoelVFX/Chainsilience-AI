@@ -19,14 +19,10 @@ export function AmbientOrbs({ variant = "app" }: { variant?: "auth" | "app" }) {
           right: -120,
           width: 480,
           height: 480,
-          // Static blur is rasterized once and cached; only the transform moves.
-          // (Previously also animated `hue-rotate` via hueBlur30, which forced a
-          // full-screen non-composited repaint every frame — brutal on weak GPUs.)
           filter: "blur(30px)",
-          willChange: "transform",
           background:
             "radial-gradient(circle at 40% 40%,rgba(139,92,246,0.22),rgba(139,92,246,0) 70%)",
-          animation: "floatOrbA 16s ease-in-out infinite",
+          animation: "floatOrbA 16s ease-in-out infinite, hueBlur30 20s linear infinite",
         }}
       />
       <div
@@ -38,10 +34,9 @@ export function AmbientOrbs({ variant = "app" }: { variant?: "auth" | "app" }) {
           width: 520,
           height: 520,
           filter: "blur(30px)",
-          willChange: "transform",
           background:
             "radial-gradient(circle at 50% 50%,rgba(34,211,238,0.16),rgba(34,211,238,0) 70%)",
-          animation: "floatOrbB 18s ease-in-out infinite",
+          animation: "floatOrbB 18s ease-in-out infinite, hueBlur30 24s linear infinite",
         }}
       />
     </>
