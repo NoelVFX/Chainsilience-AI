@@ -13,11 +13,15 @@ import { getToken } from "@/lib/api";
  * gradient, glassmorphism nav + cards, and sections for features, pricing,
  * about, and contact. "Launch Platform" smart-routes into the app.
  *
- * NOTE: the Calendly link and hello@ email below are placeholders — replace
- * CALENDLY_URL / CONTACT_EMAIL with your real ones.
+ * "Schedule a meeting" opens a pre-filled email for now — swap MEETING_URL for
+ * a real Calendly / Cal.com booking link when you have one.
  */
-const CALENDLY_URL = "https://calendly.com/chainsilience-ai/intro";
-const CONTACT_EMAIL = "hello@chainsilience.ai";
+const CONTACT_EMAIL = "chainsilienceai@gmail.com";
+const MEETING_URL = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+  "Meeting request — Chainsilience AI",
+)}&body=${encodeURIComponent(
+  "Hi Chainsilience AI team,\n\nI'd like to schedule a walkthrough.\n\nCompany:\nSupply chain / industry:\nPreferred times:\n",
+)}`;
 
 const NAV = [
   { label: "Home", id: "home" },
@@ -252,7 +256,7 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
             Launch Platform →
           </button>
           <a
-            href={CALENDLY_URL}
+            href={MEETING_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-full border px-7 py-3.5 text-sm font-semibold text-text transition-colors"
@@ -492,7 +496,7 @@ function Contact() {
           </p>
 
           <a
-            href={CALENDLY_URL}
+            href={MEETING_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-[#04121a] transition-transform hover:-translate-y-0.5"
