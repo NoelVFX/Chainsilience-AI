@@ -2,5 +2,8 @@
 __pycache__/
 *.pyc
 *.db
+*.db-wal
+*.db-shm
+chainsight.sql
 .env
 .pytest_cache/
