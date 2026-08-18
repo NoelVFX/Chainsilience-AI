@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { GlobeMount } from "@/components/three/GlobeMount";
 import { Logo } from "@/components/Logo";
-import { FadeUp, Stagger, StaggerItem } from "@/components/motion";
+import { FadeUp } from "@/components/motion";
 import { ApiError, getToken } from "@/lib/api";
 import { useCreateCheckout } from "@/lib/hooks";
 
@@ -336,24 +336,24 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
       </FadeUp>
 
       {/* stat strip */}
-      <Stagger className="mt-16 grid w-full max-w-3xl grid-cols-2 gap-4 md:grid-cols-4">
-        {STATS.map((s) => (
-          <StaggerItem key={s.label}>
-            <div
-              className="rounded-panel border px-4 py-4 text-center"
-              style={{
-                borderColor: "rgba(148,163,184,0.14)",
-                background: "rgba(17,24,39,0.4)",
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
-              }}
-            >
-              <div className="text-2xl font-extrabold text-text">{s.value}</div>
-              <div className="mt-1 text-[11.5px] text-muted">{s.label}</div>
-            </div>
-          </StaggerItem>
+      <div className="mt-16 grid w-full max-w-3xl grid-cols-2 gap-4 md:grid-cols-4">
+        {STATS.map((s, i) => (
+          <div
+            key={s.label}
+            className="tilt-card reveal rounded-panel border px-4 py-4 text-center"
+            style={{
+              borderColor: "rgba(148,163,184,0.14)",
+              background: "rgba(17,24,39,0.4)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              animationDelay: `${i * 0.06}s`,
+            }}
+          >
+            <div className="text-2xl font-extrabold text-text">{s.value}</div>
+            <div className="mt-1 text-[11.5px] text-muted">{s.label}</div>
+          </div>
         ))}
-      </Stagger>
+      </div>
     </section>
   );
 }
@@ -378,25 +378,24 @@ function Features() {
         title="An intelligence layer for your supply chain"
         sub="Every module works together — from raw global signals to the specific action that reduces your risk."
       />
-      <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((f) => (
-          <StaggerItem key={f.title}>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {FEATURES.map((f, i) => (
+          <div
+            key={f.title}
+            className="tilt-card reveal h-full rounded-panel border p-6"
+            style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(17,24,39,0.5)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", animationDelay: `${i * 0.06}s` }}
+          >
             <div
-              className="tilt-card h-full rounded-panel border p-6"
-              style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(17,24,39,0.5)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
+              className="mb-4 flex h-11 w-11 items-center justify-center rounded-card text-xl font-bold text-[#04121a]"
+              style={{ background: GRADIENT }}
             >
-              <div
-                className="mb-4 flex h-11 w-11 items-center justify-center rounded-card text-xl font-bold text-[#04121a]"
-                style={{ background: GRADIENT }}
-              >
-                {f.icon}
-              </div>
-              <h3 className="mb-2 text-[16px] font-bold text-text">{f.title}</h3>
-              <p className="text-[13.5px] leading-relaxed text-muted">{f.body}</p>
+              {f.icon}
             </div>
-          </StaggerItem>
+            <h3 className="mb-2 text-[16px] font-bold text-text">{f.title}</h3>
+            <p className="text-[13.5px] leading-relaxed text-muted">{f.body}</p>
+          </div>
         ))}
-      </Stagger>
+      </div>
     </section>
   );
 }
@@ -413,11 +412,11 @@ function HowItWorks() {
     <section className="mx-auto max-w-6xl px-6 py-16">
       <SectionHeading eyebrow="How it works" title="From signal to action in three steps" />
       <div className="grid gap-5 md:grid-cols-3">
-        {steps.map((s) => (
+        {steps.map((s, i) => (
           <div
             key={s.n}
-            className="rounded-panel border p-6"
-            style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(13,20,32,0.5)" }}
+            className="tilt-card reveal rounded-panel border p-6"
+            style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(13,20,32,0.5)", animationDelay: `${i * 0.06}s` }}
           >
             <div className="mb-3 text-3xl font-extrabold" style={{ color: "rgba(34,211,238,0.35)" }}>{s.n}</div>
             <h3 className="mb-2 text-[16px] font-bold text-text">{s.t}</h3>

@@ -114,17 +114,33 @@ a:hover {
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .tilt-card:hover {
-  transform: translateY(-4px) perspective(600px) rotateX(3deg);
-  box-shadow: 0 14px 34px rgba(34, 211, 238, 0.2);
-  border-color: rgba(34, 211, 238, 0.35);
+  /* lift + blue neon glow */
+  transform: translateY(-6px) perspective(600px) rotateX(3deg);
+  box-shadow: 0 16px 38px rgba(59, 130, 246, 0.28), 0 0 26px rgba(59, 130, 246, 0.5);
+  border-color: rgba(59, 130, 246, 0.6);
 }
 .tilt-card-sm {
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .tilt-card-sm:hover {
-  transform: translateY(-3px) perspective(500px) rotateX(2deg);
-  box-shadow: 0 12px 26px rgba(34, 211, 238, 0.18);
-  border-color: rgba(34, 211, 238, 0.3);
+  transform: translateY(-4px) perspective(500px) rotateX(2deg);
+  box-shadow: 0 14px 30px rgba(59, 130, 246, 0.24), 0 0 20px rgba(59, 130, 246, 0.45);
+  border-color: rgba(59, 130, 246, 0.55);
+}
+
+/* On-load entrance for card grids — pure CSS so it never depends on JS/hydration
+   (fixes cards that stayed invisible until an interaction). `backwards` fill
+   keeps them hidden only during their stagger delay, then reverts to base so the
+   :hover transform still works. */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  animation: revealUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { animation: none; }
 }
 /* List row soft highlight (Top Risks / news). */
 .row-hover {
