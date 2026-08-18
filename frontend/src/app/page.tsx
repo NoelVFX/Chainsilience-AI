@@ -167,6 +167,9 @@ function scrollTo(id: string) {
 export default function LandingPage() {
   const router = useRouter();
   const launch = () => router.push(getToken() ? "/dashboard" : "/login");
+  // Free plan: a signed-in user goes straight in; a guest starts onboarding
+  // (create a free account) — no payment involved.
+  const startFree = () => router.push(getToken() ? "/dashboard" : "/onboarding");
   useCalendly();
 
   // Stripe Checkout: signed-in users go to Stripe; guests sign in first.
@@ -211,7 +214,7 @@ export default function LandingPage() {
         <Features />
         <HowItWorks />
         <Pricing
-          onLaunch={launch}
+          onStartFree={startFree}
           onSubscribe={subscribe}
           subscribing={checkout.isPending}
           error={checkoutError}
@@ -429,24 +432,24 @@ function HowItWorks() {
 /* --------------------------------------------------------------------------- */
 
 function Pricing({
-  onLaunch,
+  onStartFree,
   onSubscribe,
   subscribing,
   error,
 }: {
-  onLaunch: () => void;
+  onStartFree: () => void;
   onSubscribe: (plan: string) => void;
   subscribing: boolean;
   error: string | null;
 }) {
-  // Route each plan's CTA: Starter → free demo, Growth → Stripe checkout,
-  // Enterprise → contact.
+  // Route each plan's CTA: Starter → free onboarding (no payment), Growth →
+  // Stripe checkout, Enterprise → contact.
   const handler = (name: string) =>
     name === "Growth"
       ? () => onSubscribe("growth")
       : name === "Enterprise"
         ? () => scrollTo("contact")
-        : onLaunch;
+        : onStartFree;
 
   return (
     <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-24">

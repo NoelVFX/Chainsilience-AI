@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     )
 
     # --- Meta -----------------------------------------------------------------
-    app_name: str = "ChainSight AI"
+    app_name: str = "Chainsilience AI"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
     debug: bool = True
@@ -77,7 +77,9 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
-    smtp_from: str | None = None  # defaults to smtp_user
+    # Sender address for verification emails. Defaults to the Chainsilience
+    # mailbox; for Gmail this must match SMTP_USER (the authenticated account).
+    smtp_from: str | None = "chainsilienceai@gmail.com"
     smtp_use_tls: bool = True
 
     # 6-digit code, valid for 10 minutes, max 5 wrong tries before re-request.
@@ -98,9 +100,10 @@ class Settings(BaseSettings):
     # is always exempt so the public demo stays free.
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
-    # When False, the entitlement gate is disabled even if Stripe is configured
-    # (mirrors OKX's WEB_REQUIRE_PAYMENT_FOR_DASHBOARD_LINKS toggle).
-    require_payment: bool = True
+    # The platform is free after onboarding; the Growth plan is an optional
+    # upgrade. Left False so nothing gates platform access. (The gate machinery
+    # in deps.require_entitlement remains available but is no longer wired in.)
+    require_payment: bool = False
     # Growth plan price (inline price_data, so no pre-created Stripe Price IDs).
     stripe_currency: str = "usd"
     stripe_growth_price_cents: int = 49900  # $499 / month

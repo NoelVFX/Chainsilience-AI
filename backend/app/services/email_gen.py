@@ -33,7 +33,7 @@ _TEMPLATES = {
         "estimated ${revenue} in revenue exposure. Recommended immediate action is "
         "customer notification, with a supplier switch as the highest-impact "
         "mitigation. Detailed scenarios are available in the platform.\n\n"
-        "— ChainSight AI",
+        "— Chainsilience AI",
     ),
     "procurement": (
         "Procurement request: expedite alternate sourcing for {product}",

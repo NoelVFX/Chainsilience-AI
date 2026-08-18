@@ -24,6 +24,17 @@ def smtp_configured() -> bool:
     return bool(settings.smtp_host and settings.smtp_user and settings.smtp_password)
 
 
+def _from_header() -> str:
+    """The 'From' header: the app name as display name + the sender address.
+
+    The address is SMTP_FROM (falling back to SMTP_USER). Note: for Gmail the
+    sending address must match the authenticated account, so set SMTP_USER to
+    the same mailbox you want messages to come from.
+    """
+    address = settings.smtp_from or settings.smtp_user or ""
+    return f"{settings.app_name} <{address}>"
+
+
 def _dispatch(to_email: str, subject: str, body: str, log_label: str, dev_line: str) -> bool:
     """Send one plaintext email, or dev-log it when SMTP isn't configured.
 
@@ -35,7 +46,7 @@ def _dispatch(to_email: str, subject: str, body: str, log_label: str, dev_line: 
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = settings.smtp_from or settings.smtp_user
+    msg["From"] = _from_header()
     msg["To"] = to_email
     msg.set_content(body)
 
@@ -102,7 +113,7 @@ def send_otp_email(to_email: str, code: str) -> bool:
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = settings.smtp_from or settings.smtp_user
+    msg["From"] = _from_header()
     msg["To"] = to_email
     msg.set_content(body)
 

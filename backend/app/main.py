@@ -168,19 +168,13 @@ def debug_scenario(risk_id: int) -> dict:
 
 
 # --- Versioned API ----------------------------------------------------------
-from fastapi import Depends  # noqa: E402
-from app.api.deps import require_entitlement  # noqa: E402
-
 _prefix = settings.api_v1_prefix
 
-# Ungated: auth, onboarding/company, and billing itself must stay reachable so a
-# user can sign in, onboard, and pay before they hold a plan.
-for module in (auth, company, billing):
+# The platform is free to use once a user has signed in and completed onboarding
+# — there is NO payment wall. Stripe (the Growth plan) is an optional upgrade
+# handled entirely by the billing router; it never gates platform access.
+for module in (
+    auth, company, billing, dashboard, risks, scenarios, actions, news,
+    feedback, reports, rag,
+):
     app.include_router(module.router, prefix=_prefix)
-
-# Gated: the platform's data routers require an active paid plan (a no-op unless
-# the billing gate is active — Stripe configured + REQUIRE_PAYMENT). The demo
-# account is always exempt.
-_gate = [Depends(require_entitlement)]
-for module in (dashboard, risks, scenarios, actions, news, feedback, reports, rag):
-    app.include_router(module.router, prefix=_prefix, dependencies=_gate)
