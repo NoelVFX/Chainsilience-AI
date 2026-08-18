@@ -18,9 +18,8 @@ import { useCreateCheckout } from "@/lib/hooks";
  * otherwise it falls back to a pre-filled email.
  */
 const CONTACT_EMAIL = "chainsilienceai@gmail.com";
-// Your Calendly scheduling link, e.g. "https://calendly.com/chainsilienceai/30min".
-// Leave empty to fall back to the email scheduler.
-const CALENDLY_URL = "";
+// Your Calendly scheduling link. Leave empty to fall back to the email scheduler.
+const CALENDLY_URL = "https://calendly.com/ansonho31/new-meeting";
 const MEETING_URL = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
   "Meeting request — Chainsilience AI",
 )}&body=${encodeURIComponent(
