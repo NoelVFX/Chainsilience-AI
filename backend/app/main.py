@@ -36,36 +36,26 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: create schema, seed demo data, ingest knowledge base."""
+    """Startup: create schema, seed demo data, warm the AI + RAG stack."""
     logger.info("Starting %s (env=%s)", settings.app_name, settings.environment)
     init_db()
     if settings.seed_on_startup:
         with Session(engine) as session:
             seed_if_empty(session)
-    
-    # Warm up RAG + AI on startup
+
+    # Warm up the AI client and check the company-RAG stack availability. The
+    # RAG index itself is built per company on demand (onboarding / upload /
+    # ingest), so there is nothing to bulk-ingest here.
     try:
-        from app.services.rag import get_rag_service
         from app.services.ai.adapter import ai_client
-        rag = get_rag_service()
-        rag.initialize()
-        
-        # Auto-ingest knowledge base if empty
-        if len(rag.chunks) == 0:
-            from pathlib import Path
-            knowledge_dir = Path("/app/knowledge")
-            exts = {".pdf", ".docx", ".md", ".txt"}
-            paths = [p for p in knowledge_dir.rglob("*") if p.suffix.lower() in exts and p.is_file()]
-            if paths:
-                rag.add_documents(paths)
-                logger.info("Auto-ingested %d knowledge documents on startup", len(paths))
-        
-        # Warm up AI client
+        from app.services.rag_company import get_company_rag
+
         _ = ai_client.live
-        logger.info("RAG + AI warmup complete")
-    except Exception as e:
+        rag_ok = get_company_rag().available()
+        logger.info("Warmup complete — AI live=%s, company RAG available=%s", ai_client.live, rag_ok)
+    except Exception as e:  # noqa: BLE001
         logger.warning("Startup warmup failed: %s", e)
-    
+
     yield
     logger.info("Shutting down %s", settings.app_name)
 
@@ -108,35 +98,10 @@ def healthz() -> dict:
 
 @app.get("/debug/rag", tags=["debug"])
 def debug_rag() -> dict:
-    """Debug RAG status without auth."""
-    from app.services.rag import get_rag_service
-    rag = get_rag_service()
-    rag.initialize()
-    return {
-        "chunks": len(rag.chunks),
-        "indexed": rag.index is not None,
-        "sources": list(set(c.source for c in rag.chunks)),
-        "source_types": list(set(c.source_type for c in rag.chunks)),
-        "persist_dir": str(rag.persist_dir),
-    }
+    """Whether the company-RAG stack (LangChain + embeddings + FAISS) is available."""
+    from app.services.rag_company import EMBED_MODEL, get_company_rag
 
-
-@app.post("/debug/rag/ingest", tags=["debug"])
-def debug_rag_ingest() -> dict:
-    """Manually trigger RAG ingestion without auth."""
-    from app.services.rag import get_rag_service
-    rag = get_rag_service()
-    rag.initialize()
-    
-    # Scan knowledge directory
-    from pathlib import Path
-    knowledge_dir = Path("/app/knowledge")
-    exts = {".pdf", ".docx", ".md", ".txt"}
-    paths = [p for p in knowledge_dir.rglob("*") if p.suffix.lower() in exts and p.is_file()]
-    
-    files = [str(p.relative_to(knowledge_dir)) for p in paths if p.exists()]
-    count = rag.add_documents(paths)
-    return {"ingested": count, "files": files}
+    return {"available": get_company_rag().available(), "embed_model": EMBED_MODEL}
 
 
 @app.get("/debug/scenario/{risk_id}", tags=["debug"])

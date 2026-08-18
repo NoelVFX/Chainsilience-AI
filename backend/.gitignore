@@ -7,3 +7,6 @@ __pycache__/
 chainsight.sql
 .env
 .pytest_cache/
+
+# Per-company RAG FAISS indexes (runtime artifacts)
+data/

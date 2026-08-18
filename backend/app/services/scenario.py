@@ -19,7 +19,7 @@ from typing import Any
 from app.core.logging import get_logger
 from app.models.entities import Risk
 from app.services.ai.adapter import ai_client
-from app.services.rag import get_rag_service, RetrievalResult
+from app.services.rag_company import get_company_rag
 from app.services.monte_carlo import MonteCarloService
 
 logger = get_logger(__name__)
@@ -130,7 +130,7 @@ def _parse_pct(text: str | int | float) -> float:
 class ScenarioService:
     def __init__(self) -> None:
         self.monte_carlo = MonteCarloService()
-        self.rag = get_rag_service()
+        self.rag = get_company_rag()
 
     def simulate(
         self,
@@ -161,7 +161,7 @@ class ScenarioService:
         (re)generating, never on every read.
         """
         context = self._build_context(risk, twin_nodes, twin_edges)
-        scenarios = self._generate_with_ai(context)
+        scenarios = self._generate_with_ai(context, risk.company_id)
         if scenarios:
             return scenarios
         return self._generate_deterministic(context)
@@ -286,8 +286,8 @@ class ScenarioService:
                 return c
         return risk.supplier.split()[-1] if risk.supplier else ""
 
-    def _generate_with_ai(self, context: dict[str, Any]) -> list[dict] | None:
-        """Use RAG + LLM to generate tailored mitigation strategies."""
+    def _generate_with_ai(self, context: dict[str, Any], company_id: int) -> list[dict] | None:
+        """Use company-scoped RAG + LLM to generate tailored mitigation strategies."""
         # Debug: AI client status
         logger.info(
             "Scenario AI check: live=%s, provider=%s, model=%s",
@@ -297,37 +297,21 @@ class ScenarioService:
             logger.warning("AI client not live — falling back to deterministic")
             return None
 
-        # Debug: RAG status
-        rag_chunks = len(self.rag.chunks) if self.rag.chunks else 0
-        rag_indexed = self.rag.index is not None
-        logger.info(
-            "RAG status: chunks=%d, indexed=%s, sources=%s",
-            rag_chunks, rag_indexed,
-            list(set(c.source for c in self.rag.chunks)) if self.rag.chunks else []
-        )
+        # Ground the prompt in THIS company's own data — its Digital Twin, scored
+        # risks, triggering events and mitigation history — via the company-scoped
+        # RAG index (retrieval is strictly limited to company_id).
         rag_context = ""
-        if rag_chunks > 0:
-            # 1. Retrieve relevant knowledge from RAG
+        if self.rag.available():
             rag_query = self._build_rag_query(context)
-            logger.debug("RAG query: %s", rag_query)
-            rag_results: list[RetrievalResult] = self.rag.retrieve(rag_query, top_k=5)
+            rag_context = self.rag.get_context(company_id, rag_query, k=5)
             logger.info(
-                "RAG retrieved %d results for query",
-                len(rag_results)
+                "Company RAG: %d chars of grounding context for company=%s",
+                len(rag_context), company_id,
             )
-            for i, r in enumerate(rag_results):
-                logger.debug(
-                    "RAG result %d: source=%s, score=%.3f, text_preview=%s",
-                    i, r.chunk.source, r.combined_score, r.chunk.text[:100]
-                )
-            if rag_results:
-                rag_context = self._format_rag_context(rag_results)
-            else:
-                logger.warning("RAG retrieval returned empty — using AI-only generation")
         else:
-            logger.warning("RAG empty — attempting AI-only generation")
+            logger.info("Company RAG unavailable — AI-only generation.")
 
-        # 2. Build prompt with risk context + RAG knowledge
+        # Build the prompt with the risk context + the company's own grounding.
         prompt = self._build_ai_prompt(context, rag_context)
         logger.debug("AI prompt length: %d chars", len(prompt))
 
@@ -388,19 +372,6 @@ class ScenarioService:
             parts.append("single source supplier no alternatives")
         return " ".join(parts)
 
-    def _format_rag_context(self, results: list[RetrievalResult]) -> str:
-        """Format RAG results for prompt injection."""
-        chunks = []
-        for r in results:
-            c = r.chunk
-            prefix = f"[Source: {c.source}"
-            if c.page:
-                prefix += f", p.{c.page}"
-            if c.section:
-                prefix += f", §{c.section}"
-            prefix += f" | Relevance: {r.combined_score:.2f}]"
-            chunks.append(f"{prefix}\n{c.text}")
-        return "\n---\n".join(chunks)
 
     def _build_ai_prompt(self, context: dict[str, Any], rag_context: str) -> str:
         """Build the prompt for AI scenario generation."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 import csv
 import io
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlmodel import Session
 
 from app.api.deps import get_current_company_id, get_current_user
@@ -13,6 +13,7 @@ from app.models.entities import Company, Node, NodeType, User
 from app.repositories import CompanyRepository, TwinRepository, UserRepository
 from app.schemas.domain import CompanyResponse, OnboardingRequest
 from app.services.digital_twin import DigitalTwinService
+from app.services.rag_company import get_company_rag
 from app.services.twin_builder import TwinBuilder
 
 router = APIRouter(prefix="/company", tags=["company"])
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/company", tags=["company"])
 @router.post("/onboarding", response_model=CompanyResponse)
 def onboarding(
     payload: OnboardingRequest,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> CompanyResponse:
@@ -53,6 +55,9 @@ def onboarding(
     if builder.bootstrap_from_profile(company):
         builder.seed_starter_risks(company)
 
+    # Index the freshly-built company data for RAG (best-effort, off the request).
+    background_tasks.add_task(get_company_rag().reindex, company.id)
+
     return CompanyResponse.model_validate(company)
 
 
@@ -69,6 +74,7 @@ def get_company(
 
 @router.post("/twin/upload")
 async def upload_twin_csv(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
@@ -120,6 +126,9 @@ async def upload_twin_csv(
     company = CompanyRepository(session).get(company_id)
     company.data_quality_score = min(99, max(company.data_quality_score, 80) + created)
     CompanyRepository(session).update(company)
+
+    # Re-index the enriched twin for RAG (best-effort, off the request path).
+    background_tasks.add_task(get_company_rag().reindex, company_id)
 
     return {"created": created, "skipped": skipped, "edges_created": edges_made,
             "data_quality_score": company.data_quality_score}

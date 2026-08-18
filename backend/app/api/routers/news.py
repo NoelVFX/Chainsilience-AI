@@ -1,7 +1,7 @@
 """News endpoints: recent feed + live ingestion through the AI pipeline."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -40,6 +40,7 @@ def recent_news(
 
 @router.post("/ingest", response_model=IngestResult)
 def ingest(
+    background_tasks: BackgroundTasks,
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
 ) -> IngestResult:
@@ -70,6 +71,12 @@ def ingest(
         if result.matched and result.risk:
             matched += 1
             new_risks.append(result.risk.id)
+
+    # New matched risks change the company's corpus — re-index for RAG.
+    if new_risks:
+        from app.services.rag_company import get_company_rag
+
+        background_tasks.add_task(get_company_rag().reindex, company_id)
 
     msg = (
         f"Scraped {len(collected)} headline(s). The Verifier agent dropped "
