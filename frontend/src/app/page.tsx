@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { GlobeMount } from "@/components/three/GlobeMount";
@@ -14,15 +14,54 @@ import { useCreateCheckout } from "@/lib/hooks";
  * gradient, glassmorphism nav + cards, and sections for features, pricing,
  * about, and contact. "Launch Demo" smart-routes into the app.
  *
- * "Schedule a meeting" opens a pre-filled email for now — swap MEETING_URL for
- * a real Calendly / Cal.com booking link when you have one.
+ * "Schedule a meeting" opens the Calendly popup when CALENDLY_URL is set;
+ * otherwise it falls back to a pre-filled email.
  */
 const CONTACT_EMAIL = "chainsilienceai@gmail.com";
+// Your Calendly scheduling link, e.g. "https://calendly.com/chainsilienceai/30min".
+// Leave empty to fall back to the email scheduler.
+const CALENDLY_URL = "";
 const MEETING_URL = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
   "Meeting request — Chainsilience AI",
 )}&body=${encodeURIComponent(
   "Hi Chainsilience AI team,\n\nI'd like to schedule a walkthrough.\n\nCompany:\nSupply chain / industry:\nPreferred times:\n",
 )}`;
+
+declare global {
+  interface Window {
+    Calendly?: { initPopupWidget: (opts: { url: string }) => void };
+  }
+}
+
+/** Load Calendly's popup-widget assets once (only when a link is configured). */
+function useCalendly() {
+  useEffect(() => {
+    if (!CALENDLY_URL || typeof document === "undefined") return;
+    if (!document.getElementById("calendly-css")) {
+      const link = document.createElement("link");
+      link.id = "calendly-css";
+      link.rel = "stylesheet";
+      link.href = "https://assets.calendly.com/assets/external/widget.css";
+      document.head.appendChild(link);
+    }
+    if (!document.getElementById("calendly-js")) {
+      const s = document.createElement("script");
+      s.id = "calendly-js";
+      s.src = "https://assets.calendly.com/assets/external/widget.js";
+      s.async = true;
+      document.body.appendChild(s);
+    }
+  }, []);
+}
+
+/** Open the Calendly scheduling popup, or fall back to the email scheduler. */
+function openScheduler() {
+  if (CALENDLY_URL && typeof window !== "undefined" && window.Calendly) {
+    window.Calendly.initPopupWidget({ url: CALENDLY_URL });
+    return;
+  }
+  window.location.href = MEETING_URL;
+}
 
 const NAV = [
   { label: "Home", id: "home" },
@@ -129,6 +168,7 @@ function scrollTo(id: string) {
 export default function LandingPage() {
   const router = useRouter();
   const launch = () => router.push(getToken() ? "/dashboard" : "/login");
+  useCalendly();
 
   // Stripe Checkout: signed-in users go to Stripe; guests sign in first.
   const checkout = useCreateCheckout();
@@ -282,15 +322,14 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
           >
             Launch Demo →
           </button>
-          <a
-            href={MEETING_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={openScheduler}
             className="rounded-full border px-7 py-3.5 text-sm font-semibold text-text transition-colors"
             style={{ borderColor: "rgba(148,163,184,0.25)", background: "rgba(148,163,184,0.06)" }}
           >
             Schedule a meeting
-          </a>
+          </button>
         </div>
       </FadeUp>
 
@@ -550,15 +589,14 @@ function Contact() {
             or drop us a message and we&apos;ll get back within one business day.
           </p>
 
-          <a
-            href={MEETING_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={openScheduler}
             className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-[#04121a] transition-transform hover:-translate-y-0.5"
             style={{ background: GRADIENT, boxShadow: "0 8px 30px rgba(34,211,238,0.35)" }}
           >
             📅 Schedule a meeting
-          </a>
+          </button>
 
           <div className="mt-6 text-[13.5px] text-muted">
             Prefer email?{" "}
