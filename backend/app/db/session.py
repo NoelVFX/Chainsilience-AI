@@ -64,6 +64,10 @@ def _ensure_column(
         col_type = "JSON" if engine.url.get_backend_name().startswith("postgres") else "TEXT"
     ddl = f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
     if default is not None:
+        # Postgres rejects an integer default (0/1) on a BOOLEAN column; SQLite
+        # tolerates it. Normalise so the same DDL works on both backends.
+        if col_type.upper() == "BOOLEAN" and default in ("0", "1"):
+            default = "FALSE" if default == "0" else "TRUE"
         ddl += f" DEFAULT {default}"
     with engine.begin() as conn:
         conn.execute(text(ddl))
@@ -81,7 +85,7 @@ def init_db() -> None:
     _ensure_column("risks", "mitigation_action_ids")
     # Billing / entitlement columns on companies.
     _ensure_column("companies", "plan", "TEXT", default="'free'")
-    _ensure_column("companies", "plan_active", "BOOLEAN", default="0")
+    _ensure_column("companies", "plan_active", "BOOLEAN", default="FALSE")
     _ensure_column("companies", "stripe_customer_id", "TEXT")
     _ensure_column("companies", "stripe_subscription_id", "TEXT")
 
