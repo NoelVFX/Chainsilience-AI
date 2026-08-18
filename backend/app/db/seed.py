@@ -58,6 +58,9 @@ def seed_if_empty(session: Session) -> None:
         risk_tolerance="Balanced",
         primary_products="Processor X200, Sensor Array M4",
         data_quality_score=92,
+        # The public demo account is always entitled (never gated by billing).
+        plan="growth",
+        plan_active=True,
     )
     session.add(company)
     session.commit()

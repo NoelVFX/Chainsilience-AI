@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import { GlobeMount } from "@/components/three/GlobeMount";
 import { Logo } from "@/components/Logo";
 import { FadeUp, Stagger, StaggerItem } from "@/components/motion";
-import { getToken } from "@/lib/api";
+import { ApiError, getToken } from "@/lib/api";
+import { useCreateCheckout } from "@/lib/hooks";
 
 /**
  * Marketing landing page (route "/"). A 3D globe hero over the dark brand
  * gradient, glassmorphism nav + cards, and sections for features, pricing,
- * about, and contact. "Launch Platform" smart-routes into the app.
+ * about, and contact. "Launch Demo" smart-routes into the app.
  *
  * "Schedule a meeting" opens a pre-filled email for now — swap MEETING_URL for
  * a real Calendly / Cal.com booking link when you have one.
@@ -129,6 +130,27 @@ export default function LandingPage() {
   const router = useRouter();
   const launch = () => router.push(getToken() ? "/dashboard" : "/login");
 
+  // Stripe Checkout: signed-in users go to Stripe; guests sign in first.
+  const checkout = useCreateCheckout();
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  async function subscribe(plan: string) {
+    setCheckoutError(null);
+    if (!getToken()) {
+      router.push("/login");
+      return;
+    }
+    try {
+      const { url } = await checkout.mutateAsync(plan);
+      window.location.href = url;
+    } catch (e) {
+      setCheckoutError(
+        e instanceof ApiError
+          ? e.message
+          : "Couldn't start checkout. Please try again.",
+      );
+    }
+  }
+
   return (
     <div className="relative min-h-screen overflow-x-hidden text-text">
       {/* soft brand glows */}
@@ -149,7 +171,12 @@ export default function LandingPage() {
         <Hero onLaunch={launch} />
         <Features />
         <HowItWorks />
-        <Pricing onLaunch={launch} />
+        <Pricing
+          onLaunch={launch}
+          onSubscribe={subscribe}
+          subscribing={checkout.isPending}
+          error={checkoutError}
+        />
         <About />
         <Contact />
       </main>
@@ -195,7 +222,7 @@ function Navbar({ onLaunch }: { onLaunch: () => void }) {
           className="rounded-full px-4 py-2 text-[13px] font-bold text-[#04121a] transition-transform hover:-translate-y-0.5"
           style={{ background: GRADIENT, boxShadow: "0 8px 30px rgba(34,211,238,0.35)" }}
         >
-          Launch Platform
+          Launch Demo
         </button>
       </nav>
     </header>
@@ -253,7 +280,7 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
             className="rounded-full px-7 py-3.5 text-sm font-bold text-[#04121a] transition-transform hover:-translate-y-0.5"
             style={{ background: GRADIENT, boxShadow: "0 10px 34px rgba(34,211,238,0.4)" }}
           >
-            Launch Platform →
+            Launch Demo →
           </button>
           <a
             href={MEETING_URL}
@@ -363,7 +390,26 @@ function HowItWorks() {
 
 /* --------------------------------------------------------------------------- */
 
-function Pricing({ onLaunch }: { onLaunch: () => void }) {
+function Pricing({
+  onLaunch,
+  onSubscribe,
+  subscribing,
+  error,
+}: {
+  onLaunch: () => void;
+  onSubscribe: (plan: string) => void;
+  subscribing: boolean;
+  error: string | null;
+}) {
+  // Route each plan's CTA: Starter → free demo, Growth → Stripe checkout,
+  // Enterprise → contact.
+  const handler = (name: string) =>
+    name === "Growth"
+      ? () => onSubscribe("growth")
+      : name === "Enterprise"
+        ? () => scrollTo("contact")
+        : onLaunch;
+
   return (
     <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
       <SectionHeading
@@ -371,6 +417,14 @@ function Pricing({ onLaunch }: { onLaunch: () => void }) {
         title="Start free, scale when you're ready"
         sub="Transparent tiers that grow with the size and criticality of your supply chain."
       />
+      {error && (
+        <div
+          className="mx-auto mb-6 max-w-md rounded-control border px-4 py-2.5 text-center text-[12.5px] font-semibold"
+          style={{ background: "rgba(248,113,113,0.1)", borderColor: "rgba(248,113,113,0.35)", color: "#f87171" }}
+        >
+          {error}
+        </div>
+      )}
       <div className="grid items-stretch gap-5 md:grid-cols-3">
         {PLANS.map((p) => (
           <div
@@ -407,15 +461,16 @@ function Pricing({ onLaunch }: { onLaunch: () => void }) {
               ))}
             </ul>
             <button
-              onClick={p.name === "Enterprise" ? () => scrollTo("contact") : onLaunch}
-              className="mt-7 rounded-control py-3 text-sm font-bold transition-transform hover:-translate-y-0.5"
+              onClick={handler(p.name)}
+              disabled={p.name === "Growth" && subscribing}
+              className="mt-7 rounded-control py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 disabled:opacity-70"
               style={
                 p.highlight
                   ? { background: GRADIENT, color: "#04121a", boxShadow: "0 8px 30px rgba(34,211,238,0.35)" }
                   : { background: "rgba(148,163,184,0.08)", color: "#e7ecf5", border: "1px solid rgba(148,163,184,0.25)" }
               }
             >
-              {p.cta}
+              {p.name === "Growth" && subscribing ? "Starting checkout…" : p.cta}
             </button>
           </div>
         ))}
@@ -571,7 +626,7 @@ function Footer({ onLaunch }: { onLaunch: () => void }) {
             </button>
           ))}
           <button onClick={onLaunch} className="font-semibold text-cyan">
-            Launch Platform
+            Launch Demo
           </button>
         </div>
       </div>

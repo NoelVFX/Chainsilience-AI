@@ -129,6 +129,16 @@ class CompanyRepository:
     def get(self, company_id: int) -> Company | None:
         return self.session.get(Company, company_id)
 
+    def get_by_subscription_id(self, subscription_id: str) -> Company | None:
+        return self.session.exec(
+            select(Company).where(Company.stripe_subscription_id == subscription_id)
+        ).first()
+
+    def get_by_customer_id(self, customer_id: str) -> Company | None:
+        return self.session.exec(
+            select(Company).where(Company.stripe_customer_id == customer_id)
+        ).first()
+
     def add(self, company: Company) -> Company:
         self.session.add(company)
         self.session.commit()

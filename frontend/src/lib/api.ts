@@ -62,6 +62,14 @@ async function request<T>(
     }
   }
 
+  // 402 Payment Required — the platform is gated behind a paid plan. Send the
+  // user to the pricing section (unless they're already on the landing page).
+  if (res.status === 402 && typeof window !== "undefined") {
+    if (window.location.pathname !== "/") {
+      window.location.href = "/?upgrade=1#pricing";
+    }
+  }
+
   if (!res.ok) {
     let detail = res.statusText;
     try {

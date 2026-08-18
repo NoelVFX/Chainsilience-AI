@@ -7,6 +7,8 @@ pydantic-settings==2.7.1
 email-validator==2.2.0
 python-multipart==0.0.20
 PyJWT==2.10.1
+# Payments
+stripe==11.4.1
 passlib==1.7.4
 python-dateutil==2.9.0.post0
 httpx==0.28.1

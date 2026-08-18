@@ -54,3 +54,28 @@ def get_current_company_id(user: User = Depends(get_current_user)) -> int:
             detail="User has no company. Complete onboarding first.",
         )
     return user.company_id
+
+
+def require_entitlement(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> None:
+    """Gate the platform behind a paid plan (HTTP 402 when unentitled).
+
+    No-op unless the billing gate is active (Stripe configured + REQUIRE_PAYMENT).
+    The demo account is always exempt so the public demo stays free.
+    """
+    from app.core.config import settings
+    from app.repositories import CompanyRepository
+    from app.services.billing import gate_active, is_entitled
+
+    if not gate_active():
+        return
+    if user.email == settings.demo_email:  # public demo — never gated
+        return
+    company = CompanyRepository(session).get(user.company_id) if user.company_id else None
+    if not is_entitled(company):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="A paid plan is required to access the platform.",
+        )

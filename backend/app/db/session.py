@@ -43,8 +43,15 @@ engine = create_engine(
 )
 
 
-def _ensure_column(table: str, column: str) -> None:
-    """Idempotently add a JSON column to an existing table (lightweight migration)."""
+def _ensure_column(
+    table: str, column: str, col_type: str | None = None, default: str | None = None
+) -> None:
+    """Idempotently add a column to an existing table (lightweight migration).
+
+    ``col_type`` defaults to JSON (Postgres) / TEXT (SQLite). Pass an explicit
+    type (e.g. ``"TEXT"``, ``"BOOLEAN"``) plus an optional ``default`` (SQL
+    literal) to backfill existing rows.
+    """
     from sqlalchemy import inspect, text
 
     try:
@@ -53,9 +60,13 @@ def _ensure_column(table: str, column: str) -> None:
         return
     if column in existing:
         return
-    col_type = "JSON" if engine.url.get_backend_name().startswith("postgres") else "TEXT"
+    if col_type is None:
+        col_type = "JSON" if engine.url.get_backend_name().startswith("postgres") else "TEXT"
+    ddl = f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+    if default is not None:
+        ddl += f" DEFAULT {default}"
     with engine.begin() as conn:
-        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+        conn.execute(text(ddl))
     logger.info("Migrated: added %s.%s (%s)", table, column, col_type)
 
 
@@ -68,7 +79,11 @@ def init_db() -> None:
     # Backfill columns added to already-existing tables.
     _ensure_column("risks", "scenarios")
     _ensure_column("risks", "mitigation_action_ids")
-    _ensure_column("risks", "mitigation_action_ids")
+    # Billing / entitlement columns on companies.
+    _ensure_column("companies", "plan", "TEXT", default="'free'")
+    _ensure_column("companies", "plan_active", "BOOLEAN", default="0")
+    _ensure_column("companies", "stripe_customer_id", "TEXT")
+    _ensure_column("companies", "stripe_subscription_id", "TEXT")
 
 
 def get_session() -> Iterator[Session]:

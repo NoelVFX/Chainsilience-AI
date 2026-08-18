@@ -44,3 +44,12 @@ services:
       #   sync: false
       # - key: SMTP_PASSWORD
       #   sync: false
+      # Optional: gate the platform behind a paid Stripe plan. Without
+      # STRIPE_SECRET_KEY the gate is inactive (app runs open). Set REQUIRE_PAYMENT=0
+      # to keep it open even with a key. The demo account is always exempt.
+      # - key: STRIPE_SECRET_KEY
+      #   sync: false
+      # - key: STRIPE_WEBHOOK_SECRET
+      #   sync: false
+      # - key: REQUIRE_PAYMENT
+      #   value: "1"

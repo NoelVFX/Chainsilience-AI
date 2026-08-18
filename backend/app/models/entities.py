@@ -82,6 +82,12 @@ class Company(SQLModel, table=True):
     risk_tolerance: str = "Balanced"
     primary_products: str = ""
     data_quality_score: int = 0
+    # Billing / entitlement. plan ∈ {free, growth, enterprise}; plan_active is
+    # True once a subscription's first payment is confirmed (Stripe).
+    plan: str = "free"
+    plan_active: bool = False
+    stripe_customer_id: Optional[str] = Field(default=None, index=True)
+    stripe_subscription_id: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_utcnow)
 
     users: list["User"] = Relationship(back_populates="company")

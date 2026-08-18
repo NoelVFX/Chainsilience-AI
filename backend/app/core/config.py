@@ -91,6 +91,22 @@ class Settings(BaseSettings):
     # Password-reset links are valid for 30 minutes.
     reset_token_ttl_seconds: int = 1800
 
+    # --- Billing / Stripe -----------------------------------------------------
+    # Gate the platform behind a paid plan via Stripe Checkout. Degrades
+    # gracefully: with no STRIPE_SECRET_KEY the gate is INACTIVE (the app runs
+    # exactly as before and checkout links can't be created). The demo account
+    # is always exempt so the public demo stays free.
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    # When False, the entitlement gate is disabled even if Stripe is configured
+    # (mirrors OKX's WEB_REQUIRE_PAYMENT_FOR_DASHBOARD_LINKS toggle).
+    require_payment: bool = True
+    # Growth plan price (inline price_data, so no pre-created Stripe Price IDs).
+    stripe_currency: str = "usd"
+    stripe_growth_price_cents: int = 49900  # $499 / month
+    # The seeded demo account — always entitled, never gated.
+    demo_email: str = "demo@chainsight.ai"
+
     # --- News scraping --------------------------------------------------------
     # Curated public RSS feeds for supply-chain / trade / logistics / disaster
     # signals. Fetched live on demand; falls back to an offline sample when the

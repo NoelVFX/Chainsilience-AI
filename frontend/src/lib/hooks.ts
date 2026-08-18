@@ -73,6 +73,39 @@ export function useResetPassword() {
   });
 }
 
+export interface BillingStatus {
+  plan: string;
+  active: boolean;
+  entitled: boolean;
+  gate_enabled: boolean;
+  stripe_configured: boolean;
+}
+
+/** Current company's plan + whether the paywall gate is active. */
+export function useBillingStatus(enabled = true) {
+  return useQuery({
+    queryKey: ["billing", "status"],
+    queryFn: () => api.get<BillingStatus>("/billing/status"),
+    enabled,
+  });
+}
+
+/** Start a Stripe Checkout session for a plan; returns the redirect URL. */
+export function useCreateCheckout() {
+  return useMutation({
+    mutationFn: (plan: string) =>
+      api.post<{ url: string }>("/billing/checkout", { plan }),
+  });
+}
+
+/** Confirm a returning checkout and activate the plan. */
+export function useVerifyCheckout() {
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      api.post<BillingStatus>("/billing/verify", { session_id: sessionId }),
+  });
+}
+
 export function useRegister() {
   return useMutation({
     mutationFn: (payload: {
