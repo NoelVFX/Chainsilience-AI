@@ -1,4 +1,4 @@
-"""SQLModel ORM entities for ChainSight AI."""
+"""SQLModel ORM entities for Chainsilience AI."""
 from app.models.entities import (  # noqa: F401
     Action,
     ActionStatus,

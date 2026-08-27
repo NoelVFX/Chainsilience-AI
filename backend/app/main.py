@@ -1,4 +1,4 @@
-"""FastAPI application entrypoint for ChainSight AI.
+"""FastAPI application entrypoint for Chainsilience AI.
 
 Wires configuration, logging, database initialisation + demo seeding, CORS, and
 the versioned API routers. Run locally with:

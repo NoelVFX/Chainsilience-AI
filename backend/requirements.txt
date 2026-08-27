@@ -1,4 +1,4 @@
-# ChainSight AI — backend dependencies
+# Chainsilience AI — backend dependencies
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 sqlmodel==0.0.22

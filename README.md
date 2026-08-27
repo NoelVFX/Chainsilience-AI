@@ -1,4 +1,4 @@
-# ChainSight AI — Supply Chain Risk Intelligence Platform
+# Chainsilience AI — Supply Chain Risk Intelligence Platform
 
 > Transforming global supply chain signals into actionable business decisions.
 

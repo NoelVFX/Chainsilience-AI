@@ -1,4 +1,4 @@
-# ---- ChainSight AI frontend image -------------------------------------------
+# ---- Chainsilience AI frontend image -------------------------------------------
 FROM node:20-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./

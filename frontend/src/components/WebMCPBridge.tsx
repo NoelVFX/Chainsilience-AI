@@ -8,7 +8,7 @@ import { createTools } from "@/lib/webmcp/tools";
 type Status = "pending" | "connected" | "unavailable";
 
 /**
- * Registers ChainSight's tools on the WebMCP surface so the user's agent can
+ * Registers Chainsilience AI's tools on the WebMCP surface so the user's agent can
  * drive the workspace. Mounted once, app-wide, inside the React Query provider.
  * Renders a small status badge so you can confirm the surface is live during a
  * demo. Set NEXT_PUBLIC_WEBMCP_BADGE=off to hide it.

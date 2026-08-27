@@ -1,4 +1,4 @@
-// The WebMCP tool surface for ChainSight.
+// The WebMCP tool surface for Chainsilience AI.
 //
 // Each tool wraps the same typed `api` client the UI uses and, after a
 // mutation, invalidates the matching React Query keys — so when the user's

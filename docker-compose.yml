@@ -1,4 +1,4 @@
-# ChainSight AI — full local stack: Postgres, Redis, FastAPI backend, Next.js UI.
+# Chainsilience AI — full local stack: Postgres, Redis, FastAPI backend, Next.js UI.
 # Usage:  docker compose up --build
 # Then open http://localhost:3000  (demo@chainsight.ai / demo1234)
 

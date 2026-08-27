@@ -194,7 +194,7 @@ class TwinBuilder:
 
         risk_ids: list[int] = []
         for title, body in headlines:
-            item = news_repo.add(NewsItem(source="ChainSight Feed", title=title,
+            item = news_repo.add(NewsItem(source="Chainsilience Feed", title=title,
                                           body=body, published_at=_utcnow()))
             # Classify from the title (the primary signal) to avoid body noise.
             etype, severity = _classify(title.lower())

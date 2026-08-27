@@ -1,6 +1,6 @@
 # Architecture
 
-ChainSight AI is a two-tier application (Next.js SPA ↔ FastAPI JSON API) with a
+Chainsilience AI is a two-tier application (Next.js SPA ↔ FastAPI JSON API) with a
 relational store. It follows clean/layered architecture: **routers → services →
 repositories → models**, with the AI provider hidden behind a single adapter.
 

@@ -40,7 +40,7 @@ class RSSNewsSource:
         import feedparser  # local import keeps startup light
 
         items: list[dict] = []
-        headers = {"User-Agent": "ChainSightAI/1.0 (+https://chainsight.ai)"}
+        headers = {"User-Agent": "ChainsilienceAI/1.0 (+https://chainsilience.ai)"}
         for url in self.feeds:
             try:
                 resp = httpx.get(

@@ -1,4 +1,4 @@
-# ---- ChainSight AI backend image --------------------------------------------
+# ---- Chainsilience AI backend image --------------------------------------------
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \

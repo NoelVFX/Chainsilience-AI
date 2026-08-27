@@ -1,3 +1,3 @@
-"""ChainSight AI backend package."""
+"""Chainsilience AI backend package."""
 
 __version__ = "0.1.0"
