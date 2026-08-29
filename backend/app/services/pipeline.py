@@ -106,6 +106,14 @@ class IntelligencePipeline:
                                   filtered=True, reason="No supplier path bound.",
                                   filter_stage="match")
 
+        # De-dupe: don't recreate a risk for an event we've already surfaced.
+        dup_title = self._title(event, match)
+        if self.risk_repo.exists_title(company_id, dup_title):
+            logger.info("Skipping duplicate risk '%s' for company %s.", dup_title, company_id)
+            return PipelineResult(news, event, None, [], matched=False,
+                                  filtered=True, reason="Duplicate risk.",
+                                  filter_stage="duplicate")
+
         coverage = self.impact._coverage_days(match, graph)  # reuse coverage calc
         result = self.scorer.score(event, match.supplier, coverage_days=coverage)
         impact_tiles, revenue = self.impact.predict(match, graph, result.score)

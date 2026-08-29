@@ -2,12 +2,19 @@
 
 Unlike a generic "is this supply-chain news" check, this agent reasons over the
 company's own **Digital Twin paths** — its named suppliers, the components /
-commodities it depends on, its products, production locations, operating
-countries, and logistics routes/ports — and keeps only news that plausibly
-touches one of them.
+commodities it depends on, its products, production sites, and logistics routes /
+ports — and keeps only news that plausibly touches one of them.
 
-Uses the LLM (Nemotron) when configured; otherwise a transparent entity/keyword
-match against the twin profile so it always runs offline.
+Key rule: **geography alone is not enough.** A story that merely happens in a
+country the company operates in is NOT relevant. It becomes relevant only when a
+named asset/commodity is mentioned, OR when a country that holds one of the
+company's physical assets coincides with an actual disruption (war, export
+control, strike, disaster, port closure, …). This keeps out generic
+country-level noise while catching, e.g., "war in Iran" when the company keeps a
+wafer warehouse in Iran.
+
+Uses the LLM (Nemotron) when configured; otherwise a transparent, tiered
+entity/geo match against the twin profile so it always runs offline.
 """
 from __future__ import annotations
 
@@ -21,25 +28,59 @@ from app.services.digital_twin import TwinGraph
 
 logger = get_logger(__name__)
 
+# Node types that represent a physical asset in a location — a disruption in one
+# of these countries can actually hit the company.
+_ASSET_TYPES = {"supplier", "factory", "warehouse", "port", "component", "product"}
+
+# Words that mark a real disruption (vs. generic country news).
+_DISRUPTION = (
+    "war", "conflict", "invasion", "missile", "airstrike", "attack", "strike",
+    "protest", "unrest", "coup", "curfew", "riot", "blockade", "sanction",
+    "embargo", "tariff", "export control", "export ban", "import ban",
+    "restriction", "quota", "earthquake", "aftershock", "flood", "typhoon",
+    "hurricane", "cyclone", "storm", "wildfire", "fire", "explosion", "blast",
+    "drought", "shortage", "outage", "blackout", "closure", "closed", "shutdown",
+    "shut down", "halt", "suspend", "congestion", "backlog", "delay", "disruption",
+    "recall", "contamination", "spill", "quarantine", "lockdown", "cyberattack",
+    "hack", "ransomware", "default", "bankruptcy", "grounded", "diversion",
+)
+
+# Commodity terms that broaden matching beyond exact component names.
+_COMMODITY_TERMS = (
+    "wafer", "silicon", "rare earth", "neodymium", "lithium", "cobalt", "nickel",
+    "copper", "steel", "aluminum", "aluminium", "semiconductor", "chip", "magnet",
+    "battery", "polysilicon", "graphite", "palladium", "gallium", "germanium",
+)
+
 
 def build_profile(graph: TwinGraph, company_countries: str = "") -> dict:
-    """Compact supply-chain profile of the company, derived from its twin."""
+    """Compact supply-chain profile of the company, derived from its twin.
+
+    ``asset_countries`` holds only countries where the company has a *physical*
+    asset (supplier / factory / warehouse / port / component / product) — the
+    geography that a disruption can actually reach.
+    """
     by_type: dict[str, list[str]] = {}
-    countries: set[str] = set()
+    op_countries: set[str] = set()
+    asset_countries: set[str] = set()
     for n in graph.nodes.values():
         by_type.setdefault(n.type.value, []).append(n.name)
-        if n.country and n.country.lower() != "global":
-            countries.add(n.country)
+        country = (n.country or "").strip()
+        if country and country.lower() != "global":
+            op_countries.add(country)
+            if n.type.value in _ASSET_TYPES:
+                asset_countries.add(country)
     for c in (company_countries or "").replace(";", ",").split(","):
         if c.strip():
-            countries.add(c.strip())
+            op_countries.add(c.strip())
     return {
         "suppliers": by_type.get("supplier", []),
         "components": by_type.get("component", []),
         "products": by_type.get("product", []),
-        "factories": by_type.get("factory", []),
+        "factories": by_type.get("factory", []) + by_type.get("warehouse", []),
         "ports_routes": by_type.get("port", []) + by_type.get("route", []),
-        "countries": sorted(countries),
+        "countries": sorted(op_countries),
+        "asset_countries": sorted(asset_countries),
     }
 
 
@@ -73,26 +114,43 @@ class RelevanceAgent:
                 v = (v or "").strip()
                 if not v:
                     continue
-                # Whole-word/phrase match to avoid spurious substring hits.
                 if re.search(r"\b" + re.escape(v.lower()) + r"\b", text):
                     found.append(v)
             return found
 
-        matched: list[str] = []
-        for key in ("suppliers", "components", "products", "factories", "ports_routes", "countries"):
-            matched += hits(profile.get(key, []))
-        # Component/commodity keywords broaden matching beyond exact names.
-        commodity_terms = ("wafer", "silicon", "rare earth", "neodymium", "lithium",
-                           "cobalt", "steel", "semiconductor", "chip", "magnet")
-        commodity = [t for t in commodity_terms if t in text
-                     and any(t in (c or "").lower() for c in profile.get("components", []))]
-        matched += commodity
+        # --- strong signals: a named asset or a commodity the company uses ---
+        strong: list[str] = []
+        for key in ("suppliers", "components", "products", "factories", "ports_routes"):
+            strong += hits(profile.get(key, []))
+        strong += [
+            t for t in _COMMODITY_TERMS
+            if t in text and any(t in (c or "").lower() for c in profile.get("components", []))
+        ]
 
-        matched = sorted(set(matched))
-        relevant = len(matched) > 0
-        confidence = min(0.9, 0.55 + 0.1 * len(matched)) if relevant else 0.5
-        reason = (
-            f"Touches company paths: {', '.join(matched[:4])}." if relevant
-            else "No overlap with the company's suppliers, inputs, products, sites, or routes."
-        )
-        return RelevanceVerdict(relevant, confidence, reason, matched, "heuristic")
+        # --- geo signal: a country that holds a physical asset ---------------
+        geo = hits(profile.get("asset_countries", []))
+        disruption = [d for d in _DISRUPTION if d in text]
+
+        strong = sorted(set(strong))
+        geo = sorted(set(geo))
+
+        # Relevant when a named asset/commodity is touched, OR when a disruption
+        # coincides with a country where the company actually has an asset.
+        # Geography alone (country with no disruption) is intentionally dropped.
+        geo_disruption = bool(geo) and bool(disruption)
+        relevant = bool(strong) or geo_disruption
+
+        matched = strong + ([f"{g} + {disruption[0]}" for g in geo] if geo_disruption else [])
+        if relevant:
+            conf = min(0.95, 0.6 + 0.12 * len(strong) + (0.15 if geo_disruption else 0))
+            reason = "Touches company paths: " + ", ".join(matched[:4]) + "."
+        else:
+            conf = 0.5
+            if geo and not disruption:
+                reason = (
+                    f"Mentions {geo[0]} (an asset location) but no disruption to a "
+                    "supply-chain path — dropped as generic country news."
+                )
+            else:
+                reason = "No overlap with the company's suppliers, inputs, products, sites, or routes."
+        return RelevanceVerdict(relevant, conf, reason, matched, "heuristic")

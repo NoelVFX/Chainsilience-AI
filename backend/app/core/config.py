@@ -141,6 +141,16 @@ class Settings(BaseSettings):
     news_fetch_per_feed: int = 4
     news_http_timeout: float = 8.0
 
+    # --- Real-time news poller ------------------------------------------------
+    # A background loop scrapes the feeds concurrently every `poll_seconds` and
+    # keeps the dashboard fresh. It de-dupes against the DB, and (when enabled)
+    # runs the risk pipeline for newly-relevant items per company. Disable the
+    # whole loop, or just the LLM risk-generation, to control cost.
+    news_poll_enabled: bool = True
+    news_poll_seconds: int = 60
+    news_poll_generate_risks: bool = True
+    news_poll_max_new_risks: int = 8  # per company per cycle (bounds LLM calls)
+
 
 @lru_cache
 def get_settings() -> Settings:
