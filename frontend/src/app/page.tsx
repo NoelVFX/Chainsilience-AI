@@ -7,7 +7,7 @@ import { GlobeMount } from "@/components/three/GlobeMount";
 import { Logo } from "@/components/Logo";
 import { FadeUp } from "@/components/motion";
 import { ApiError, getToken } from "@/lib/api";
-import { useCreateCheckout } from "@/lib/hooks";
+import { useBillingStatus, useCreateCheckout } from "@/lib/hooks";
 
 /**
  * Marketing landing page (route "/"). A 3D globe hero over the dark brand
@@ -174,7 +174,10 @@ export default function LandingPage() {
 
   // Stripe Checkout: signed-in users go to Stripe; guests sign in first.
   const checkout = useCreateCheckout();
+  const [hasSession, setHasSession] = useState(false);
+  const billing = useBillingStatus(hasSession);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  useEffect(() => setHasSession(Boolean(getToken())), []);
   async function subscribe(plan: string) {
     setCheckoutError(null);
     if (!getToken()) {
@@ -218,6 +221,8 @@ export default function LandingPage() {
           onSubscribe={subscribe}
           subscribing={checkout.isPending}
           error={checkoutError}
+          currentPlan={billing.data?.plan ?? null}
+          checkingPlan={hasSession && billing.isLoading}
         />
         <About />
         <Contact />
@@ -435,11 +440,15 @@ function Pricing({
   onSubscribe,
   subscribing,
   error,
+  currentPlan,
+  checkingPlan,
 }: {
   onStartFree: () => void;
   onSubscribe: (plan: string) => void;
   subscribing: boolean;
   error: string | null;
+  currentPlan: string | null;
+  checkingPlan: boolean;
 }) {
   // Route each plan's CTA: Starter → free onboarding (no payment), Growth →
   // Stripe checkout, Enterprise → contact.
@@ -449,6 +458,10 @@ function Pricing({
       : name === "Enterprise"
         ? () => scrollTo("contact")
         : onStartFree;
+  const isCurrentPlan = (name: string) => {
+    const plan = currentPlan?.toLowerCase();
+    return Boolean(plan) && (plan === name.toLowerCase() || (plan === "free" && name === "Starter"));
+  };
 
   return (
     <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
@@ -465,9 +478,16 @@ function Pricing({
           {error}
         </div>
       )}
+      {currentPlan && (
+        <div className="mx-auto mb-6 max-w-md rounded-control border border-cyan/30 bg-cyan/[0.06] px-4 py-2.5 text-center text-[12.5px] text-muted">
+          Current plan: <span className="font-bold capitalize text-cyan">{currentPlan}</span>
+        </div>
+      )}
       <div className="grid items-stretch gap-5 md:grid-cols-3">
-        {PLANS.map((p) => (
-          <div
+        {PLANS.map((p) => {
+          const current = isCurrentPlan(p.name);
+          return (
+            <div
             key={p.name}
             className="relative flex flex-col rounded-panel border p-7"
             style={{
@@ -486,6 +506,11 @@ function Pricing({
                 Most popular
               </span>
             )}
+            {current && (
+              <span className="absolute right-4 top-4 rounded-full border border-cyan/30 bg-cyan/[0.08] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan">
+                Current plan
+              </span>
+            )}
             <div className="text-[15px] font-bold text-text">{p.name}</div>
             <div className="mt-3 flex items-end gap-1">
               <span className="text-4xl font-extrabold text-text">{p.price}</span>
@@ -502,18 +527,19 @@ function Pricing({
             </ul>
             <button
               onClick={handler(p.name)}
-              disabled={p.name === "Growth" && subscribing}
-              className="mt-7 rounded-control py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 disabled:opacity-70"
+              disabled={current || checkingPlan || (p.name === "Growth" && subscribing)}
+              className="mt-7 rounded-control py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
               style={
                 p.highlight
                   ? { background: GRADIENT, color: "#04121a", boxShadow: "0 8px 30px rgba(34,211,238,0.35)" }
                   : { background: "rgba(148,163,184,0.08)", color: "#e7ecf5", border: "1px solid rgba(148,163,184,0.25)" }
               }
             >
-              {p.name === "Growth" && subscribing ? "Starting checkout…" : p.cta}
+              {current ? "Current plan" : p.name === "Growth" && subscribing ? "Starting checkout…" : p.cta}
             </button>
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
