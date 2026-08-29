@@ -9,7 +9,7 @@ Returns the news that actually matters to a company, in priority order:
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.core.config import settings
 from app.models.entities import NewsItem, _utcnow
@@ -47,13 +47,13 @@ def relevant_news(session, company_id: int, limit: int = 6) -> list[NewsItem]:
         ev = events.get(r.event_id)
         if ev and ev.news_id and ev.news_id not in seen:
             n = session.get(NewsItem, ev.news_id)
-            if n and n.published_at >= cutoff:
+            if n and _as_utc(n.published_at) >= cutoff:
                 picked.append(n)
                 seen.add(n.id)
 
     # 2. Other recent items that touch the company's supply chain.
     for n in news_repo.latest(200):
-        if n.published_at < cutoff:
+        if _as_utc(n.published_at) < cutoff:
             break
         if n.id in seen:
             continue
@@ -62,10 +62,17 @@ def relevant_news(session, company_id: int, limit: int = 6) -> list[NewsItem]:
             seen.add(n.id)
 
     # Most-recent first, capped.
-    picked.sort(key=lambda n: n.published_at, reverse=True)
+    picked.sort(key=lambda n: _as_utc(n.published_at), reverse=True)
     picked = picked[:limit]
 
     # An empty result is meaningful once a Digital Twin exists: it means the
     # stored recent news did not match this company's supply-chain profile.
     # Do not substitute unrelated or stale headlines for an empty relevant feed.
     return picked
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Normalize database timestamps before comparing or sorting them."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
