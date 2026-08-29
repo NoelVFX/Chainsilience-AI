@@ -33,8 +33,8 @@ def recent_news(
     """Recent news that touches THIS company's supply chain.
 
     Prioritises the news behind the company's own risks and other relevant items;
-    falls back to the raw latest feed if the company has no twin or nothing
-    relevant is found, so the feed is never blank.
+    falls back to the raw latest feed only if the company has no twin yet. An
+    empty result for a configured twin means no relevant news was found.
     """
     from app.services.news_feed import relevant_news
 

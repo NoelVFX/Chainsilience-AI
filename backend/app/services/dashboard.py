@@ -52,7 +52,7 @@ class DashboardService:
         }
 
     def _relevant_news(self, company_id: int, company, limit: int) -> list:
-        """News that matters to this company — risk-driving + relevant, never blank."""
+        """News that matters to this company — risk-driving + relevant."""
         from app.services.news_feed import relevant_news
 
         return relevant_news(self.session, company_id, limit)

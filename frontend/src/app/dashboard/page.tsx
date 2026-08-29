@@ -104,8 +104,13 @@ export default function DashboardPage() {
           <FadeUp delay={0.3} className="grid grid-cols-[1.6fr_1fr] gap-4">
             <div className="card">
               <div className="mb-3.5 text-[15px] font-bold text-text">Recent News</div>
-              <div className="flex flex-col gap-3">
-                {data.news.map((n) => {
+              {data.news.length === 0 ? (
+                <p className="text-[12.5px] leading-[1.7] text-muted">
+                  No recent news relevant to your supply chain operations
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {data.news.map((n) => {
                   const clickable = Boolean(n.url);
                   const Row = (
                     <>
@@ -137,8 +142,9 @@ export default function DashboardPage() {
                       {Row}
                     </div>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="card flex flex-col">

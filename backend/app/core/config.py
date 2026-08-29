@@ -140,6 +140,7 @@ class Settings(BaseSettings):
     ]
     news_fetch_per_feed: int = 4
     news_http_timeout: float = 8.0
+    news_max_age_days: int = 7
 
     # --- Real-time news poller ------------------------------------------------
     # A background loop scrapes the feeds concurrently every `poll_seconds` and
