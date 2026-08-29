@@ -8,3 +8,9 @@
 **/node_modules/
 **/.next/
 .DS_Store
+
+# Local demo recordings (not for git)
+chainsilience-ai-demo.mp4
+chainsilience-ai-demo-narration.mp3
+*.mp4
+*.mp3

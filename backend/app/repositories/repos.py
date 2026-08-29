@@ -129,6 +129,9 @@ class CompanyRepository:
     def get(self, company_id: int) -> Company | None:
         return self.session.get(Company, company_id)
 
+    def all(self) -> list[Company]:
+        return list(self.session.exec(select(Company)).all())
+
     def get_by_subscription_id(self, subscription_id: str) -> Company | None:
         return self.session.exec(
             select(Company).where(Company.stripe_subscription_id == subscription_id)
@@ -195,6 +198,16 @@ class NewsRepository:
             ).all()
         )
 
+    def get_by_url(self, url: str) -> NewsItem | None:
+        if not url:
+            return None
+        return self.session.exec(select(NewsItem).where(NewsItem.url == url)).first()
+
+    def exists_title(self, title: str) -> bool:
+        return self.session.exec(
+            select(NewsItem.id).where(NewsItem.title == title)
+        ).first() is not None
+
     def add(self, item: NewsItem) -> NewsItem:
         self.session.add(item)
         self.session.commit()
@@ -228,6 +241,11 @@ class RiskRepository:
                 .order_by(Risk.score.desc())
             ).all()
         )
+
+    def exists_title(self, company_id: int, title: str) -> bool:
+        return self.session.exec(
+            select(Risk.id).where(Risk.company_id == company_id, Risk.title == title)
+        ).first() is not None
 
     def get(self, risk_id: int) -> Risk | None:
         return self.session.get(Risk, risk_id)

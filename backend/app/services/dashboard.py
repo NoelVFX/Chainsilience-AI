@@ -14,7 +14,10 @@ from app.repositories import (
     CompanyRepository,
     NewsRepository,
     RiskRepository,
+    TwinRepository,
 )
+from app.services.agents.relevance import RelevanceAgent, build_profile
+from app.services.digital_twin import DigitalTwinService
 
 
 def _fmt_money(value: float) -> str:
@@ -27,6 +30,7 @@ def _fmt_money(value: float) -> str:
 
 class DashboardService:
     def __init__(self, session) -> None:
+        self.session = session
         self.company_repo = CompanyRepository(session)
         self.risk_repo = RiskRepository(session)
         self.news_repo = NewsRepository(session)
@@ -35,8 +39,8 @@ class DashboardService:
     def build(self, company_id: int) -> dict:
         company = self.company_repo.get(company_id)
         risks = self.risk_repo.for_company(company_id)
-        news = self.news_repo.latest(6)
         actions = self.action_repo.for_company(company_id)
+        news = self._relevant_news(company_id, company, limit=6)
 
         return {
             "kpis": self._kpis(company, risks),
@@ -49,6 +53,21 @@ class DashboardService:
             "actions_summary": self._actions_summary(actions),
             "map_points": self._map_points(risks),
         }
+
+    def _relevant_news(self, company_id: int, company, limit: int) -> list:
+        """Latest news filtered to items that touch this company's supply chain."""
+        graph = DigitalTwinService(TwinRepository(self.session)).build_graph(company_id)
+        if not graph.nodes:
+            return self.news_repo.latest(limit)  # no twin yet — show raw feed
+        profile = build_profile(graph, getattr(company, "countries", "") or "")
+        relevance = RelevanceAgent()
+        out = []
+        for n in self.news_repo.latest(60):
+            if relevance._heuristic(n, profile).relevant:
+                out.append(n)
+                if len(out) >= limit:
+                    break
+        return out
 
     # -- KPIs -----------------------------------------------------------------
     def _kpis(self, company: Company | None, risks) -> list[dict]:

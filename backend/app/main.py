@@ -1,4 +1,4 @@
-"""FastAPI application entrypoint for ChainSight AI.
+"""FastAPI application entrypoint for Chainsilience AI.
 
 Wires configuration, logging, database initialisation + demo seeding, CORS, and
 the versioned API routers. Run locally with:
@@ -56,7 +56,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # noqa: BLE001
         logger.warning("Startup warmup failed: %s", e)
 
+    # Start the real-time news poller (scrapes every minute, keeps risks fresh).
+    from app.services import news_poller
+    news_poller.start()
+
     yield
+
+    await news_poller.stop()
     logger.info("Shutting down %s", settings.app_name)
 
 

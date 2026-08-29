@@ -194,14 +194,20 @@ class AIClient:
         """
         out = self._chat(
             "You are a supply-chain relevance analyst. Given a company's supply-chain "
-            "profile and a news item, decide whether the news is RELEVANT to this "
-            "specific company — i.e. it plausibly affects one of its named suppliers, "
-            "the components/commodities it depends on, its products, its production "
-            "locations, the countries it operates in, or its logistics routes/ports. "
-            "General industry news that does not touch its paths is NOT relevant. "
-            "Respond ONLY with JSON: {\"relevant\": bool, \"confidence\": 0-1, "
-            "\"reason\": string, \"matched\": [string]} where matched lists the "
-            "specific company entities the news touches.",
+            "profile and a news item, decide whether the news RELEVANT to this "
+            "specific company. It is relevant only if it plausibly affects a NAMED "
+            "asset — one of its suppliers, the components/commodities it depends on, "
+            "its products, its production sites/warehouses, or its logistics "
+            "routes/ports — OR describes a real disruption (war, export control, "
+            "sanction, strike, disaster, port closure, shortage, etc.) in a country "
+            "listed under 'asset_countries' (where the company holds a physical "
+            "asset). CRITICAL: geography ALONE is NOT enough — a story that merely "
+            "happens in a country the company operates in, with no link to one of "
+            "its assets or no actual disruption, is NOT relevant. General industry "
+            "news is NOT relevant. Respond ONLY with JSON: {\"relevant\": bool, "
+            "\"confidence\": 0-1, \"reason\": string, \"matched\": [string]} where "
+            "matched lists the specific company assets or asset-country disruptions "
+            "the news touches.",
             "COMPANY SUPPLY-CHAIN PROFILE:\n" + json.dumps(profile)
             + f"\n\nNEWS:\nHeadline: {headline}\nBody: {body}",
             json_mode=True,
