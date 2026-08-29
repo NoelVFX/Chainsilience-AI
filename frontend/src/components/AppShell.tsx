@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { AmbientOrbs } from "@/components/AmbientOrbs";
 import { clearToken, getToken } from "@/lib/api";
+import { useBillingStatus } from "@/lib/hooks";
 
 interface NavItem {
   label: string;
@@ -26,9 +27,16 @@ const NAV: NavItem[] = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [hasSession, setHasSession] = useState(false);
+  const billing = useBillingStatus(hasSession);
 
   useEffect(() => {
-    if (!getToken()) router.replace("/login");
+    const token = getToken();
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+    setHasSession(true);
   }, [router]);
 
   const isActive = (href: string) =>
@@ -88,6 +96,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="mt-auto border-t border-line pt-4">
+          <button
+            onClick={() => {
+              window.location.href = "/#pricing";
+            }}
+            className="mb-1 flex w-full items-center justify-between rounded-[10px] px-3.5 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+          >
+            <span>
+              <span className="block text-[13px] font-semibold text-text">Plan &amp; Billing</span>
+              <span className="mt-0.5 block text-[11px] capitalize text-muted">
+                {billing.data?.plan ?? "Loading plan…"}
+              </span>
+            </span>
+            <span className="text-xs text-muted">→</span>
+          </button>
           <button
             onClick={() => {
               clearToken();
