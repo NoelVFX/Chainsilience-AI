@@ -8,6 +8,7 @@ dependency, guaranteeing the session is closed after each request.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -92,5 +93,12 @@ def init_db() -> None:
 
 def get_session() -> Iterator[Session]:
     """FastAPI dependency yielding a scoped database session."""
+    with Session(engine) as session:
+        yield session
+
+
+@contextmanager
+def session_scope() -> Iterator[Session]:
+    """Standalone session for work outside a request (e.g. background tasks)."""
     with Session(engine) as session:
         yield session

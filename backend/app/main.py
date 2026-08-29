@@ -52,7 +52,13 @@ async def lifespan(app: FastAPI):
 
         _ = ai_client.live
         rag_ok = get_company_rag().available()
-        logger.info("Warmup complete — AI live=%s, company RAG available=%s", ai_client.live, rag_ok)
+        from app.services.graph_store import get_graph_store
+
+        neo4j_ok = get_graph_store().available()
+        logger.info(
+            "Warmup complete — AI live=%s, company RAG available=%s, Neo4j graph=%s",
+            ai_client.live, rag_ok, neo4j_ok,
+        )
     except Exception as e:  # noqa: BLE001
         logger.warning("Startup warmup failed: %s", e)
 
@@ -63,6 +69,13 @@ async def lifespan(app: FastAPI):
     yield
 
     await news_poller.stop()
+    # Close the Neo4j driver if the knowledge graph was in use.
+    try:
+        from app.services.graph_store import get_graph_store
+
+        get_graph_store().close()
+    except Exception:  # noqa: BLE001
+        pass
     logger.info("Shutting down %s", settings.app_name)
 
 

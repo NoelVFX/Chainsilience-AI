@@ -25,3 +25,6 @@ langchain-community==0.4.2
 langchain-huggingface==1.2.2
 langchain-text-splitters==1.1.2
 numpy==1.26.4
+# Optional: Neo4j knowledge graph for supply-chain dependency-path mapping.
+# The app runs fully without it (relational twin + in-memory traversal fallback).
+neo4j==5.28.1

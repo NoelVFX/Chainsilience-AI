@@ -57,6 +57,8 @@ def onboarding(
 
     # Index the freshly-built company data for RAG (best-effort, off the request).
     background_tasks.add_task(get_company_rag().reindex, company.id)
+    # Mirror the twin into the Neo4j knowledge graph (no-op if not configured).
+    background_tasks.add_task(_sync_graph_store, company.id)
 
     return CompanyResponse.model_validate(company)
 
@@ -129,6 +131,8 @@ async def upload_twin_csv(
 
     # Re-index the enriched twin for RAG (best-effort, off the request path).
     background_tasks.add_task(get_company_rag().reindex, company_id)
+    # Mirror the enriched twin into the Neo4j knowledge graph (no-op if unset).
+    background_tasks.add_task(_sync_graph_store, company_id)
 
     return {"created": created, "skipped": skipped, "edges_created": edges_made,
             "data_quality_score": company.data_quality_score}
@@ -140,3 +144,37 @@ def twin_graph(
     session: Session = Depends(get_session),
 ) -> dict:
     return DigitalTwinService(TwinRepository(session)).graph_payload(company_id)
+
+
+@router.get("/twin/paths")
+def twin_dependency_paths(
+    start: str | None = None,
+    company_id: int = Depends(get_current_company_id),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Supply-chain dependency-path mapping downstream of a node.
+
+    Given a starting entity ``start`` (e.g. a disrupted supplier's key), returns
+    every downstream dependency path to the customers/leaf nodes it feeds —
+    computed in Neo4j (Cypher) when the knowledge graph is configured, with an
+    in-memory graph-traversal fallback otherwise. If ``start`` is omitted, the
+    first supplier in the twin is used so the endpoint is self-demonstrating.
+    """
+    twin_repo = TwinRepository(session)
+    service = DigitalTwinService(twin_repo)
+
+    if not start:
+        suppliers = [n for n in twin_repo.nodes(company_id) if n.type == NodeType.SUPPLIER]
+        if not suppliers:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "No supplier nodes in twin")
+        start = suppliers[0].key
+
+    return service.dependency_paths(company_id, start)
+
+
+def _sync_graph_store(company_id: int) -> None:
+    """Background task: mirror a company's twin into Neo4j (best-effort)."""
+    from app.db.session import session_scope
+
+    with session_scope() as session:
+        DigitalTwinService(TwinRepository(session)).sync_to_graph_store(company_id)

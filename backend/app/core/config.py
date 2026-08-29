@@ -152,6 +152,17 @@ class Settings(BaseSettings):
     news_poll_generate_risks: bool = True
     news_poll_max_new_risks: int = 8  # per company per cycle (bounds LLM calls)
 
+    # --- Neo4j knowledge graph (OPTIONAL) -------------------------------------
+    # When configured, the company's supply-chain entities + relationships are
+    # mirrored into Neo4j for real graph storage and Cypher dependency-path
+    # mapping. Unset → the relational twin + in-memory traversal remain the
+    # source of truth (unchanged behaviour). Use a Neo4j Aura connection URI
+    # (neo4j+s://...) in production, or bolt://localhost:7687 locally.
+    neo4j_uri: str | None = None
+    neo4j_user: str = "neo4j"
+    neo4j_password: str | None = None
+    neo4j_database: str = "neo4j"
+
 
 @lru_cache
 def get_settings() -> Settings:
