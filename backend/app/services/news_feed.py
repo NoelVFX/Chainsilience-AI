@@ -5,7 +5,7 @@ Returns the news that actually matters to a company, in priority order:
   1. news that generated the company's risks (definitively relevant, and never
      buried by the volume of unrelated global scraping),
   2. other supply-chain-relevant recent items (cheap relevance heuristic),
-  3. and, only when the company has no twin yet, the latest news as a fallback.
+  3. an empty result when no company-relevant news is available.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def relevant_news(session, company_id: int, limit: int = 6) -> list[NewsItem]:
     news_repo = NewsRepository(session)
     graph = DigitalTwinService(TwinRepository(session)).build_graph(company_id)
     if not graph.nodes:
-        return news_repo.latest(limit)  # no twin yet — show the raw feed
+        return []  # no company profile exists to establish relevance
 
     company = CompanyRepository(session).get(company_id)
     profile = build_profile(graph, getattr(company, "countries", "") or "")
@@ -67,6 +67,5 @@ def relevant_news(session, company_id: int, limit: int = 6) -> list[NewsItem]:
 
     # An empty result is meaningful once a Digital Twin exists: it means the
     # stored recent news did not match this company's supply-chain profile.
-    # Keep the raw-feed fallback only for companies that have no twin yet, where
-    # relevance cannot be assessed.
+    # Do not substitute unrelated or stale headlines for an empty relevant feed.
     return picked
