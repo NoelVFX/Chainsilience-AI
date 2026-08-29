@@ -8,10 +8,8 @@ from sqlmodel import Session
 from app.api.deps import get_current_company_id
 from app.core.timeutil import relative_time
 from app.db.session import get_session
-from app.repositories import CompanyRepository, NewsRepository, TwinRepository
+from app.repositories import CompanyRepository, NewsRepository
 from app.schemas.domain import NewsCard
-from app.services.agents.relevance import RelevanceAgent, build_profile
-from app.services.digital_twin import DigitalTwinService
 from app.services.news_engine import NewsEngine
 from app.services.pipeline import IntelligencePipeline
 
@@ -32,26 +30,19 @@ def recent_news(
     company_id: int = Depends(get_current_company_id),
     session: Session = Depends(get_session),
 ) -> list[NewsCard]:
-    """Recent news, filtered to what actually touches THIS company's supply chain.
+    """Recent news that touches THIS company's supply chain.
 
-    Uses the (cheap, no-LLM) relevance heuristic so generic country-level noise is
-    excluded. If the company has no twin yet, the raw latest feed is shown.
+    Prioritises the news behind the company's own risks and other relevant items;
+    falls back to the raw latest feed if the company has no twin or nothing
+    relevant is found, so the feed is never blank.
     """
-    repo = NewsRepository(session)
-    graph = DigitalTwinService(TwinRepository(session)).build_graph(company_id)
-    company = CompanyRepository(session).get(company_id)
-    profile = build_profile(graph, getattr(company, "countries", "") or "")
-    relevance = RelevanceAgent()
+    from app.services.news_feed import relevant_news
 
-    cards: list[NewsCard] = []
-    for n in repo.latest(80):  # over-fetch, then keep the relevant ones
-        if graph.nodes and not relevance._heuristic(n, profile).relevant:
-            continue
-        cards.append(NewsCard(id=n.id, source=n.source, title=n.title,
-                              time=relative_time(n.published_at), url=n.url or ""))
-        if len(cards) >= 20:
-            break
-    return cards
+    return [
+        NewsCard(id=n.id, source=n.source, title=n.title,
+                 time=relative_time(n.published_at), url=n.url or "")
+        for n in relevant_news(session, company_id, limit=20)
+    ]
 
 
 @router.post("/ingest", response_model=IngestResult)

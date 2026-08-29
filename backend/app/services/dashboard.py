@@ -14,10 +14,7 @@ from app.repositories import (
     CompanyRepository,
     NewsRepository,
     RiskRepository,
-    TwinRepository,
 )
-from app.services.agents.relevance import RelevanceAgent, build_profile
-from app.services.digital_twin import DigitalTwinService
 
 
 def _fmt_money(value: float) -> str:
@@ -55,19 +52,10 @@ class DashboardService:
         }
 
     def _relevant_news(self, company_id: int, company, limit: int) -> list:
-        """Latest news filtered to items that touch this company's supply chain."""
-        graph = DigitalTwinService(TwinRepository(self.session)).build_graph(company_id)
-        if not graph.nodes:
-            return self.news_repo.latest(limit)  # no twin yet — show raw feed
-        profile = build_profile(graph, getattr(company, "countries", "") or "")
-        relevance = RelevanceAgent()
-        out = []
-        for n in self.news_repo.latest(60):
-            if relevance._heuristic(n, profile).relevant:
-                out.append(n)
-                if len(out) >= limit:
-                    break
-        return out
+        """News that matters to this company — risk-driving + relevant, never blank."""
+        from app.services.news_feed import relevant_news
+
+        return relevant_news(self.session, company_id, limit)
 
     # -- KPIs -----------------------------------------------------------------
     def _kpis(self, company: Company | None, risks) -> list[dict]:
