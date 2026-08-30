@@ -8,7 +8,7 @@ from app.api.deps import get_current_company_id
 from app.core.constants import severity_color, severity_label
 from app.core.timeutil import relative_time
 from app.db.session import get_session
-from app.models.entities import Action, Risk
+from app.models.entities import Action, NodeType, Risk
 from app.repositories import ActionRepository, EmailDraftRepository, EventRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
     EmailRequest,
@@ -121,6 +121,41 @@ def risk_detail(
         impact=[ImpactTile(**i) for i in impact],
         chain=r.chain,
     )
+
+
+@router.get("/{risk_id}/paths")
+def risk_dependency_paths(
+    risk_id: int,
+    company_id: int = Depends(get_current_company_id),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Supply-chain dependency paths downstream of this risk's disrupted supplier.
+
+    Computed by the **Neo4j** knowledge graph (Cypher variable-length paths) when
+    it's configured, with a transparent in-memory graph-traversal fallback so the
+    panel always renders. ``source`` tells the UI which engine produced it.
+    """
+    from app.services.digital_twin import DigitalTwinService
+
+    r = _load_risk(risk_id, company_id, session)
+    twin = TwinRepository(session)
+    nodes = twin.nodes(company_id)
+
+    # Resolve the disrupted supplier's twin-node key from the risk's supplier name,
+    # falling back to any supplier node so the panel still shows a real path.
+    start = next(
+        (n.key for n in nodes if n.type == NodeType.SUPPLIER and n.name == r.supplier),
+        None,
+    )
+    if start is None:
+        sup = next((n for n in nodes if n.type == NodeType.SUPPLIER), None)
+        start = sup.key if sup else None
+    if start is None:
+        return {"source": "none", "start": None, "supplier": r.supplier, "paths": []}
+
+    result = DigitalTwinService(twin).dependency_paths(company_id, start)
+    result["supplier"] = r.supplier
+    return result
 
 
 @router.post("/{risk_id}/email", response_model=EmailResponse)

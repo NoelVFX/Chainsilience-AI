@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
+import { DependencyPaths } from "@/components/DependencyPaths";
 import { EmailModal } from "@/components/EmailModal";
 import { AnimatedBar, FadeUp } from "@/components/motion";
 import { useRiskDetail, useRisks } from "@/lib/hooks";
@@ -142,6 +143,10 @@ export default function RiskDetailPage() {
               </div>
             </FadeUp>
           </div>
+
+          <FadeUp delay={0.18}>
+            <DependencyPaths riskId={riskId} />
+          </FadeUp>
 
           <div className="mt-5 flex gap-3">
             <button

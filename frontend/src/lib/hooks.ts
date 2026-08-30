@@ -211,6 +211,31 @@ export function useRiskDetail(riskId: number) {
   });
 }
 
+export interface DependencyPathNode {
+  key: string;
+  name: string;
+  type: string;
+}
+export interface DependencyPath {
+  nodes: DependencyPathNode[];
+  relationships: string[];
+}
+export interface RiskPaths {
+  source: "neo4j" | "in_memory" | "none";
+  start: string | null;
+  supplier?: string;
+  paths: DependencyPath[];
+}
+
+/** Supply-chain dependency paths for a risk — from Neo4j (Cypher) or fallback. */
+export function useRiskPaths(riskId: number) {
+  return useQuery({
+    queryKey: ["risk-paths", riskId],
+    queryFn: () => api.get<RiskPaths>(`/risks/${riskId}/paths`),
+    enabled: Number.isFinite(riskId) && riskId > 0,
+  });
+}
+
 export function useScenarios(riskId: number, priority = "balanced") {
   return useQuery({
     queryKey: ["scenarios", riskId, priority],
