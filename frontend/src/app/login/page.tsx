@@ -121,6 +121,13 @@ export default function LoginPage() {
               Start onboarding
             </span>
           </div>
+
+          <button
+            onClick={() => router.push("/")}
+            className="mt-1 flex items-center justify-center gap-1.5 text-center text-xs text-muted transition-colors hover:text-text"
+          >
+            <span aria-hidden>←</span> Back to home
+          </button>
         </div>
       </div>
       </FadeUp>
