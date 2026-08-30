@@ -49,6 +49,16 @@ _DISRUPTION = (
     "hack", "ransomware", "default", "bankruptcy", "grounded", "diversion",
 )
 
+# Human-interest / casualty framing that marks a story as a humanitarian or
+# tourism disaster rather than a supply-chain disruption. When the headline is
+# dominated by these (e.g. "hundreds of foreigners missing in Tibet after floods")
+# it is dropped from the geo+disruption path, even if it mentions a disruption
+# word in a supplier country. A named company asset/commodity still overrides.
+_HUMANITARIAN = (
+    "foreigner", "tourist", "missing", "rescue", "survivor", "bodies",
+    "mourn", "evacuat", "relief", "death toll", "casualt", "villagers",
+)
+
 # Commodity terms that broaden matching beyond exact component names.
 _COMMODITY_TERMS = (
     "wafer", "silicon", "rare earth", "neodymium", "lithium", "cobalt", "nickel",
@@ -160,10 +170,14 @@ class RelevanceAgent:
         strong = sorted(set(strong))
         geo = sorted(set(geo))
 
+        # A humanitarian / tourism-casualty story is not a supply-chain
+        # disruption even if it mentions a disruption word in a supplier country.
+        humanitarian = any(h in title for h in _HUMANITARIAN)
+
         # Relevant when a named asset/commodity is touched, OR when a disruption
-        # coincides with a country where the company actually has an asset.
-        # Geography alone (country with no disruption) is intentionally dropped.
-        geo_disruption = bool(geo) and bool(disruption)
+        # coincides with a country where the company actually has an asset (and the
+        # story isn't a pure human-interest disaster). Geography alone is dropped.
+        geo_disruption = bool(geo) and bool(disruption) and not humanitarian
         relevant = bool(strong) or geo_disruption
 
         matched = strong + ([f"{g} + {disruption[0]}" for g in geo] if geo_disruption else [])
@@ -172,7 +186,12 @@ class RelevanceAgent:
             reason = "Touches company paths: " + ", ".join(matched[:4]) + "."
         else:
             conf = 0.5
-            if geo and not disruption:
+            if geo and disruption and humanitarian:
+                reason = (
+                    f"A humanitarian/casualty story in {geo[0]}, not a supply-chain "
+                    "disruption — dropped."
+                )
+            elif geo and not disruption:
                 reason = (
                     f"Mentions {geo[0]} (an asset location) but no disruption to a "
                     "supply-chain path — dropped as generic country news."
