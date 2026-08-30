@@ -12,7 +12,7 @@ from app.api.deps import get_current_company_id
 from app.core.constants import severity_color, severity_label
 from app.core.logging import get_logger
 from app.db.session import get_session
-from app.models.entities import Action, ActionStatus
+from app.models.entities import Action, ActionStatus, Severity
 from app.repositories import ActionRepository, RiskRepository
 from app.schemas.domain import (
     ActionBoardResponse,
@@ -36,11 +36,15 @@ _COLUMNS: list[tuple[ActionStatus, str]] = [
 ]
 
 
-def _card(a: Action) -> ActionCard:
+def _card(a: Action, priority: Severity | None = None) -> ActionCard:
+    # An action's displayed risk level tracks its linked disruption's CURRENT
+    # severity (passed in as ``priority``), so when a risk is re-scored/re-banded
+    # the board reflects the new level instead of the level frozen at approval.
+    prio = priority if priority is not None else a.priority
     return ActionCard(
         id=a.id, title=a.title, owner=a.owner, deadline=a.deadline,
-        priority=severity_label(a.priority).upper(),
-        priority_color=severity_color(a.priority), status=a.status,
+        priority=severity_label(prio).upper(),
+        priority_color=severity_color(prio), status=a.status,
     )
 
 
@@ -50,9 +54,14 @@ def board(
     session: Session = Depends(get_session),
 ) -> ActionBoardResponse:
     actions = ActionRepository(session).for_company(company_id)
+    # Map each linked risk to its current severity so cards show the live level.
+    risk_severity = {
+        r.id: r.severity for r in RiskRepository(session).for_company(company_id)
+    }
     by_status: dict[ActionStatus, list[ActionCard]] = {s: [] for s, _ in _COLUMNS}
     for a in actions:
-        by_status.setdefault(a.status, []).append(_card(a))
+        eff = risk_severity.get(a.risk_id) if a.risk_id else None
+        by_status.setdefault(a.status, []).append(_card(a, eff))
     return ActionBoardResponse(
         columns=[
             ActionColumn(key=s, name=name, items=by_status.get(s, []))
@@ -246,7 +255,13 @@ def move(
     if payload.status == ActionStatus.COMPLETED and not was_completed:
         _apply_mitigation_effect(session, updated)
 
-    return _card(updated)
+    # Reflect the linked risk's CURRENT severity (it may have just been re-banded
+    # by the mitigation effect above) rather than the level frozen at approval.
+    eff = None
+    if updated.risk_id:
+        risk = RiskRepository(session).get(updated.risk_id)
+        eff = risk.severity if risk else None
+    return _card(updated, eff)
 
 
 @router.delete("/{action_id}")

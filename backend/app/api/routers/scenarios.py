@@ -7,7 +7,7 @@ from sqlmodel import Session
 from app.api.deps import get_current_company_id
 from app.core.logging import get_logger
 from app.db.session import engine, get_session
-from app.models.entities import Action, ActionStatus, Severity
+from app.models.entities import Action, ActionStatus
 from app.repositories import ActionRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
     ApproveScenarioRequest,
@@ -168,7 +168,10 @@ def approve(
             title=title,
             owner="Procurement",
             deadline="",
-            priority=Severity.CRITICAL if risk.severity == Severity.CRITICAL else Severity.HIGH,
+            # Priority mirrors the disruption's ACTUAL current severity, so the
+            # Action Center box shows the real level (not always High/Critical)
+            # and stays correct as the risk is re-scored over time.
+            priority=risk.severity,
             status=ActionStatus.APPROVED,
             estimated_benefit=f"{scenario['risk_reduction']} risk reduction",
             estimated_cost=scenario["cost"],
