@@ -32,14 +32,18 @@ logger = get_logger(__name__)
 # of these countries can actually hit the company.
 _ASSET_TYPES = {"supplier", "factory", "warehouse", "port", "component", "product"}
 
-# Words that mark a real disruption (vs. generic country news).
+# Words that mark a real supply-chain disruption (vs. generic country news).
+# Deliberately excludes ambiguous human-interest terms like "conflict", "attack"
+# and "fire" that routinely appear in non-supply-chain stories (e.g. wildlife
+# conflict, animal attacks); armed events are still caught by war/invasion/
+# missile/airstrike, cyber by cyberattack, and fires by wildfire/explosion/blast.
 _DISRUPTION = (
-    "war", "conflict", "invasion", "missile", "airstrike", "attack", "strike",
+    "war", "invasion", "missile", "airstrike", "strike",
     "protest", "unrest", "coup", "curfew", "riot", "blockade", "sanction",
     "embargo", "tariff", "export control", "export ban", "import ban",
     "restriction", "quota", "earthquake", "aftershock", "flood", "typhoon",
-    "hurricane", "cyclone", "storm", "wildfire", "fire", "explosion", "blast",
-    "drought", "shortage", "outage", "blackout", "closure", "closed", "shutdown",
+    "hurricane", "cyclone", "storm", "wildfire", "explosion", "blast",
+    "drought", "shortage", "outage", "blackout", "closure", "shutdown",
     "shut down", "halt", "suspend", "congestion", "backlog", "delay", "disruption",
     "recall", "contamination", "spill", "quarantine", "lockdown", "cyberattack",
     "hack", "ransomware", "default", "bankruptcy", "grounded", "diversion",
@@ -129,7 +133,19 @@ class RelevanceAgent:
 
         # --- geo signal: a country that holds a physical asset ---------------
         geo = hits(profile.get("asset_countries", []))
-        disruption = [d for d in _DISRUPTION if d in text]
+        # Disruption must be signalled in the TITLE (the primary signal) as a
+        # whole word. Scanning the body — or matching substrings — produced false
+        # positives like a China story that merely mentions "conflict"/"attack"
+        # in passing, or "war" inside "warehouse". Requiring a real disruption
+        # word in the headline keeps "Earthquake hits Taiwan" / "Export ban on
+        # China chips" while dropping generic country news.
+        title = news.title.lower()
+        disruption = [
+            d for d in _DISRUPTION
+            # allow a trailing "s" so plurals match too (tariffs, export controls,
+            # sanctions, closures, …) without matching inside larger words.
+            if re.search(r"\b" + re.escape(d) + r"s?\b", title)
+        ]
 
         strong = sorted(set(strong))
         geo = sorted(set(geo))
