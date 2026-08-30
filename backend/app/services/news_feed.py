@@ -47,7 +47,7 @@ def relevant_news(session, company_id: int, limit: int = 6) -> list[NewsItem]:
         ev = events.get(r.event_id)
         if ev and ev.news_id and ev.news_id not in seen:
             n = session.get(NewsItem, ev.news_id)
-            if n and _as_utc(n.published_at) >= cutoff:
+            if n and _is_real(n) and _as_utc(n.published_at) >= cutoff:
                 picked.append(n)
                 seen.add(n.id)
 
@@ -55,7 +55,7 @@ def relevant_news(session, company_id: int, limit: int = 6) -> list[NewsItem]:
     for n in news_repo.latest(200):
         if _as_utc(n.published_at) < cutoff:
             break
-        if n.id in seen:
+        if n.id in seen or not _is_real(n):
             continue
         if relevance._heuristic(n, profile).relevant:
             picked.append(n)
@@ -69,6 +69,16 @@ def relevant_news(session, company_id: int, limit: int = 6) -> list[NewsItem]:
     # stored recent news did not match this company's supply-chain profile.
     # Do not substitute unrelated or stale headlines for an empty relevant feed.
     return picked
+
+
+def _is_real(n: NewsItem) -> bool:
+    """Only surface news that links to a real external article.
+
+    Synthetic starter items (the deterministic "Chainsilience Feed" seeded during
+    onboarding to bootstrap the first risks) carry no URL, so they're excluded
+    from the feed — the user can't click through to a source that doesn't exist.
+    """
+    return bool((n.url or "").strip())
 
 
 def _as_utc(value: datetime) -> datetime:
