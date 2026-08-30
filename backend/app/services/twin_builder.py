@@ -15,12 +15,10 @@ from app.models.entities import (
     Company,
     Edge,
     EdgeType,
-    NewsItem,
     Node,
     NodeType,
 )
-from app.models.entities import _utcnow
-from app.repositories import NewsRepository, TwinRepository
+from app.repositories import TwinRepository
 
 logger = get_logger(__name__)
 
@@ -150,85 +148,3 @@ class TwinBuilder:
         made += link(factories, products, EdgeType.PRODUCES)
         made += link(factories, customers, EdgeType.DELIVERS)
         return made
-
-    # ---- starter risks ------------------------------------------------------
-    def seed_starter_risks(self, company: Company) -> list[int]:
-        """Populate a few starter risks so the dashboard isn't empty.
-
-        Runs **deterministically** (matching + scoring + impact — no LLM calls),
-        so onboarding stays fast even when live AI is enabled. The AI agents are
-        exercised on demand via the "Ingest live news" flow instead.
-        """
-        # Deferred imports keep module load light and avoid cycles.
-        from app.models.entities import Event, Risk
-        from app.services.digital_twin import DigitalTwinService
-        from app.services.event_extraction import _classify, _detect_country
-        from app.services.impact import ImpactService
-        from app.services.matching import MatchingService
-        from app.repositories import EventRepository, RiskRepository
-        from app.services.risk_scoring import RiskScoringService
-
-        countries = _split(company.countries) or ["Global"]
-        c0 = countries[0]
-        # Headlines authored so each classifies to a distinct event type from the
-        # title alone (bodies are for display, not classification).
-        headlines = [
-            (f"Port congestion worsens at major {c0} terminals",
-             "Container dwell times are climbing at key berths amid an export surge."),
-            (f"New export tariffs imposed on {c0} manufactured goods",
-             "Trade groups cite higher duties on imported components."),
-        ]
-        if len(countries) > 1:
-            headlines.append((
-                f"Severe storm disrupts {countries[1]} shipping lanes",
-                "Operators are rerouting vessels around the affected region.",
-            ))
-
-        news_repo = NewsRepository(self.session)
-        event_repo = EventRepository(self.session)
-        risk_repo = RiskRepository(self.session)
-        matcher = MatchingService()
-        scorer = RiskScoringService()
-        impact = ImpactService()
-        graph = DigitalTwinService(self.twin).build_graph(company.id)
-
-        risk_ids: list[int] = []
-        for title, body in headlines:
-            item = news_repo.add(NewsItem(source="ChainSight Feed", title=title,
-                                          body=body, published_at=_utcnow()))
-            # Classify from the title (the primary signal) to avoid body noise.
-            etype, severity = _classify(title.lower())
-            country = _detect_country(title) or c0
-            event = event_repo.add(Event(
-                news_id=item.id, type=etype, country=country, location=country,
-                severity=severity, confidence=0.7, summary=title,
-            ))
-            match = matcher.match(event, graph)
-            if match is None:
-                continue
-            coverage = impact._coverage_days(match, graph)
-            result = scorer.score(event, match.supplier, coverage_days=coverage)
-            tiles, revenue = impact.predict(match, graph, result.score)
-            dep = int(float(match.supplier.attributes.get("dependency_share", 0.4)) * 100)
-            risk = risk_repo.add(Risk(
-                company_id=company.id, event_id=event.id,
-                title=f"{country} {etype.replace('_', ' ').title()} — {match.supplier.name}",
-                headline=title, supplier=match.supplier.name, severity=result.severity,
-                score=result.score, confidence=result.confidence, revenue_at_risk=revenue,
-                reasoning=(
-                    f"A {etype.replace('_', ' ')} event in {country} threatens "
-                    f"{match.supplier.name}, which carries ~{dep}% dependency. "
-                    f"Composite risk score {result.score}."
-                ),
-                factors=result.factors, impact=tiles,
-                chain=[f"{country} {etype.replace('_', ' ').title()}",
-                       f"Supplier: {match.supplier.name}"]
-                      + [f"{graph.nodes[k].type.value.title()}: {graph.nodes[k].name}"
-                         for k in match.affected_keys if k in graph.nodes
-                         and k != match.supplier.key],
-            ))
-            risk_ids.append(risk.id)
-            # No starter actions: recommendations only enter the Action Center
-            # once the user approves a scenario for the event.
-        logger.info("Seeded %d starter risk(s) for company %s.", len(risk_ids), company.id)
-        return risk_ids

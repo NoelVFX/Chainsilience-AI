@@ -127,12 +127,25 @@ class Neo4jGraphStore:
                 f"MATCH (x:TwinNode {{company_id:$cid, key:$key}}) SET x:{_label(n.type.value)}",
                 cid=company_id, key=n.key,
             )
+        from app.services.digital_twin import _impact_step
+
         for e in edges:
             tx.run(
                 "MATCH (a:TwinNode {company_id:$cid, key:$src}) "
                 "MATCH (b:TwinNode {company_id:$cid, key:$dst}) "
                 f"MERGE (a)-[:{_rel(e.type.value)}]->(b)",
                 cid=company_id, src=e.source_key, dst=e.target_key,
+            )
+            # A normalized :IMPACTS edge in the downstream-impact direction so a
+            # single variable-length traversal maps the full dependency chain
+            # (supplier -> component -> product -> factory -> customer).
+            reverse, label = _impact_step(e.type.value)
+            isrc, idst = (e.target_key, e.source_key) if reverse else (e.source_key, e.target_key)
+            tx.run(
+                "MATCH (a:TwinNode {company_id:$cid, key:$src}) "
+                "MATCH (b:TwinNode {company_id:$cid, key:$dst}) "
+                "MERGE (a)-[r:IMPACTS]->(b) SET r.label=$label",
+                cid=company_id, src=isrc, dst=idst, label=label,
             )
 
     def clear_company(self, company_id: int) -> None:
@@ -155,10 +168,10 @@ class Neo4jGraphStore:
             return []
         d = _depth(max_depth)
         cypher = (
-            f"MATCH p = (s:TwinNode {{company_id:$cid, key:$key}})-[*1..{d}]->(t:TwinNode) "
-            "WHERE t:Customer OR NOT (t)-->() "
+            f"MATCH p = (s:TwinNode {{company_id:$cid, key:$key}})-[:IMPACTS*1..{d}]->(t:TwinNode) "
+            "WHERE t:Customer OR NOT (t)-[:IMPACTS]->() "
             "RETURN [x IN nodes(p) | {key:x.key, name:x.name, type:x.type}] AS nodes, "
-            "       [r IN relationships(p) | type(r)] AS rels "
+            "       [r IN relationships(p) | r.label] AS rels "
             "ORDER BY length(p) DESC LIMIT 25"
         )
         try:
@@ -175,7 +188,7 @@ class Neo4jGraphStore:
             return []
         d = _depth(max_depth)
         cypher = (
-            f"MATCH (s:TwinNode {{company_id:$cid, key:$key}})-[*1..{d}]->(x:TwinNode) "
+            f"MATCH (s:TwinNode {{company_id:$cid, key:$key}})-[:IMPACTS*1..{d}]->(x:TwinNode) "
             "RETURN DISTINCT x.key AS key, x.name AS name, x.type AS type"
         )
         try:

@@ -114,16 +114,47 @@ class DigitalTwinService:
         }
 
 
-def _reconstruct_paths(graph: "TwinGraph", start_key: str, max_depth: int) -> list[dict]:
-    """DFS every downstream simple path from ``start_key`` to a sink node.
+# How a disruption propagates through each edge type. Impact usually flows
+# source -> target (a supplier's outage hits the component it SUPPLIES), but the
+# stored REQUIRES / PRODUCES edges point the "wrong" way (a product REQUIRES a
+# component; a factory PRODUCES a product), so impact flows in reverse there.
+# Each entry is (reverse?, readable label for the step in the impact direction).
+_IMPACT_EDGE: dict[str, tuple[bool, str]] = {
+    "supplies": (False, "supplies"),
+    "requires": (True, "required by"),
+    "produces": (True, "produced by"),
+    "delivers": (False, "delivers to"),
+    "ships": (False, "ships to"),
+    "stores": (False, "stores"),
+}
 
-    A sink is a customer or a node with no outgoing edges — mirrors the Cypher
-    query so the fallback returns the same supplier→…→customer chains.
+
+def _impact_step(edge_type: str) -> tuple[bool, str]:
+    """(reverse?, label) for orienting an edge in the downstream-impact direction."""
+    return _IMPACT_EDGE.get(edge_type, (False, edge_type))
+
+
+def _reconstruct_paths(graph: "TwinGraph", start_key: str, max_depth: int) -> list[dict]:
+    """DFS every downstream **impact** path from ``start_key`` to a sink node.
+
+    Follows the direction a disruption actually propagates — supplier → component
+    → product → factory → customer — by orienting REQUIRES/PRODUCES edges in
+    reverse. A sink is a customer or a node with no downstream impact edges.
+    Mirrors the Neo4j ``:IMPACTS`` traversal so the fallback returns the same
+    chains.
     """
     from app.models.entities import NodeType
 
     if start_key not in graph.nodes:
         return []
+
+    # Build the impact adjacency (with readable step labels) once.
+    impact_adj: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for edge_list in graph.out_edges.values():
+        for e in edge_list:
+            reverse, label = _impact_step(e.type.value)
+            src, dst = (e.target_key, e.source_key) if reverse else (e.source_key, e.target_key)
+            impact_adj[src].append((dst, label))
 
     def describe(key: str) -> dict:
         n = graph.nodes[key]
@@ -131,7 +162,7 @@ def _reconstruct_paths(graph: "TwinGraph", start_key: str, max_depth: int) -> li
 
     def is_sink(key: str) -> bool:
         node = graph.nodes.get(key)
-        return not graph.neighbors(key) or (node is not None and node.type == NodeType.CUSTOMER)
+        return not impact_adj.get(key) or (node is not None and node.type == NodeType.CUSTOMER)
 
     results: list[dict] = []
     stack: list[tuple[str, list[str], list[str]]] = [(start_key, [start_key], [])]
@@ -145,13 +176,9 @@ def _reconstruct_paths(graph: "TwinGraph", start_key: str, max_depth: int) -> li
             continue
         if len(node_path) - 1 >= max_depth:
             continue
-        for edge in graph.out_edges.get(key, []):
-            if edge.target_key in node_path:  # avoid cycles
+        for tgt, label in impact_adj.get(key, []):
+            if tgt in node_path:  # avoid cycles
                 continue
-            stack.append((
-                edge.target_key,
-                node_path + [edge.target_key],
-                rel_path + [edge.type.value.upper()],
-            ))
+            stack.append((tgt, node_path + [tgt], rel_path + [label]))
     results.sort(key=lambda p: len(p["nodes"]), reverse=True)
     return results
