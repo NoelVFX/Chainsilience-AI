@@ -74,9 +74,19 @@ def build_profile(graph: TwinGraph, company_countries: str = "") -> dict:
             op_countries.add(country)
             if n.type.value in _ASSET_TYPES:
                 asset_countries.add(country)
-    for c in (company_countries or "").replace(";", ",").split(","):
-        if c.strip():
-            op_countries.add(c.strip())
+    company_list = [
+        c.strip() for c in (company_countries or "").replace(";", ",").split(",") if c.strip()
+    ]
+    company_set = {c.lower() for c in company_list}
+    for c in company_list:
+        op_countries.add(c)
+    # Constrain the disruption-geography signal to the company's CURRENTLY
+    # declared operating countries. This keeps a stale twin — leftover supplier
+    # nodes from a previous profile — from matching news for countries the company
+    # no longer operates in (e.g. China flood news lingering after switching to
+    # Canada). With no declared countries, fall back to the twin's asset countries.
+    if company_set:
+        asset_countries = {c for c in asset_countries if c.lower() in company_set}
     return {
         "suppliers": by_type.get("supplier", []),
         "components": by_type.get("component", []),
