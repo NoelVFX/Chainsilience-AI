@@ -81,31 +81,43 @@ export default function DashboardPage() {
           <FadeUp delay={0.18} className="mb-4 grid grid-cols-[2.3fr_1fr] gap-4">
             <div className="card">
               <div className="mb-3.5 text-[15px] font-bold text-text">Top Risks</div>
-              <div className="flex flex-col">
-                {data.risks.map((r) => (
-                  <div
-                    key={r.id}
-                    onClick={() => router.push(`/risk/${r.id}`)}
-                    className="row-hover grid grid-cols-[8px_minmax(0,1fr)_92px] items-center gap-3.5 rounded-control border-b border-line px-2 py-3.5"
-                  >
-                    <span
-                      style={{ width: 8, height: 8, borderRadius: "50%", background: r.severity_color }}
-                    />
-                    <div className="min-w-0">
-                      <div className="truncate text-[13.5px] font-semibold text-text">{r.title}</div>
-                      <div className="mt-0.5 truncate text-xs text-muted">
-                        {r.supplier} · {r.time}
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <div className="text-[12.5px] font-bold" style={{ color: r.severity_color }}>
-                        {r.severity}
-                      </div>
-                      <div className="mt-[3px] text-[11px] text-muted">{r.impact}</div>
-                    </div>
+              {data.risks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="text-[13.5px] font-semibold text-text">
+                    No supply chain relevant risks detected
                   </div>
-                ))}
-              </div>
+                  <div className="mt-1.5 max-w-[340px] text-[12px] leading-[1.6] text-muted">
+                    We&apos;re continuously scanning global news. New disruptions affecting
+                    your suppliers will appear here automatically.
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  {data.risks.map((r) => (
+                    <div
+                      key={r.id}
+                      onClick={() => router.push(`/risk/${r.id}`)}
+                      className="row-hover grid grid-cols-[8px_minmax(0,1fr)_92px] items-center gap-3.5 rounded-control border-b border-line px-2 py-3.5"
+                    >
+                      <span
+                        style={{ width: 8, height: 8, borderRadius: "50%", background: r.severity_color }}
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate text-[13.5px] font-semibold text-text">{r.title}</div>
+                        <div className="mt-0.5 truncate text-xs text-muted">
+                          {r.supplier} · {r.time}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 text-right">
+                        <div className="text-[12.5px] font-bold" style={{ color: r.severity_color }}>
+                          {r.severity}
+                        </div>
+                        <div className="mt-[3px] text-[11px] text-muted">{r.impact}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="card">
