@@ -221,7 +221,7 @@ export default function LandingPage() {
           onSubscribe={subscribe}
           subscribing={checkout.isPending}
           error={checkoutError}
-          currentPlan={billing.data?.plan ?? null}
+          currentPlan={hasSession ? billing.data?.plan ?? null : null}
           checkingPlan={hasSession && billing.isLoading}
         />
         <About />

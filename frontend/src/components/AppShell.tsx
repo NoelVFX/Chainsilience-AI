@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -27,6 +28,7 @@ const NAV: NavItem[] = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const [hasSession, setHasSession] = useState(false);
   const billing = useBillingStatus(hasSession);
 
@@ -118,6 +120,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => {
               clearToken();
+              // Wipe cached user data (e.g. billing status) so a later visit to
+              // the landing page doesn't show a stale "Current plan".
+              queryClient.clear();
               router.replace("/login");
             }}
             className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-[13px] text-muted hover:text-text"
