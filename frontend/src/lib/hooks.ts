@@ -79,6 +79,7 @@ export interface BillingStatus {
   entitled: boolean;
   gate_enabled: boolean;
   stripe_configured: boolean;
+  cancel_at_period_end: boolean;
 }
 
 /** Current company's plan + whether the paywall gate is active. */
@@ -103,6 +104,19 @@ export function useVerifyCheckout() {
   return useMutation({
     mutationFn: (sessionId: string) =>
       api.post<BillingStatus>("/billing/verify", { session_id: sessionId }),
+  });
+}
+
+/** Cancel the current paid plan at the end of the billing period. */
+export function useCancelPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<BillingStatus>("/billing/cancel", {}),
+    onSuccess: (status) => {
+      // Update the cached status immediately, then refetch to stay in sync.
+      qc.setQueryData(["billing", "status"], status);
+      qc.invalidateQueries({ queryKey: ["billing", "status"] });
+    },
   });
 }
 

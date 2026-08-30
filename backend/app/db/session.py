@@ -87,6 +87,7 @@ def init_db() -> None:
     # Billing / entitlement columns on companies.
     _ensure_column("companies", "plan", "TEXT", default="'free'")
     _ensure_column("companies", "plan_active", "BOOLEAN", default="FALSE")
+    _ensure_column("companies", "plan_cancel_at_period_end", "BOOLEAN", default="FALSE")
     _ensure_column("companies", "stripe_customer_id", "TEXT")
     _ensure_column("companies", "stripe_subscription_id", "TEXT")
 

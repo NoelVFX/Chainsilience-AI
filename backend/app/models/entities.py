@@ -86,6 +86,9 @@ class Company(SQLModel, table=True):
     # True once a subscription's first payment is confirmed (Stripe).
     plan: str = "free"
     plan_active: bool = False
+    # True once the user cancels: the subscription stays active until the end of
+    # the current paid period, then Stripe stops billing and deactivates it.
+    plan_cancel_at_period_end: bool = False
     stripe_customer_id: Optional[str] = Field(default=None, index=True)
     stripe_subscription_id: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=_utcnow)

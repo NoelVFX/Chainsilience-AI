@@ -72,6 +72,8 @@ def activate_company(session, company: Company, *, plan: str, customer_id: str |
 
     company.plan = plan
     company.plan_active = True
+    # A fresh activation clears any prior pending cancellation.
+    company.plan_cancel_at_period_end = False
     if customer_id:
         company.stripe_customer_id = customer_id
     if subscription_id:
@@ -82,11 +84,43 @@ def activate_company(session, company: Company, *, plan: str, customer_id: str |
 
 
 def deactivate_company(session, company: Company) -> Company:
-    """Revoke access (e.g. subscription cancelled)."""
+    """Revoke access (e.g. subscription fully cancelled at period end)."""
     from app.repositories import CompanyRepository
 
     company.plan = "free"
     company.plan_active = False
+    company.plan_cancel_at_period_end = False
+    company.stripe_subscription_id = None
     updated = CompanyRepository(session).update(company)
     logger.info("Billing: deactivated company %s", company.id)
     return updated
+
+
+def cancel_subscription(session, company: Company) -> Company:
+    """Cancel at period end: stop billing next cycle, keep access until then.
+
+    Sets Stripe's ``cancel_at_period_end`` on the live subscription so no further
+    charges occur, while the company keeps its plan for the rest of the paid
+    period. Full deactivation happens later via the ``customer.subscription.deleted``
+    webhook when the period actually ends.
+    """
+    from app.repositories import CompanyRepository
+
+    stripe = get_stripe()
+    if stripe is not None and company.stripe_subscription_id:
+        # Let a Stripe error propagate to the caller so the UI can report it.
+        stripe.Subscription.modify(
+            company.stripe_subscription_id, cancel_at_period_end=True
+        )
+    company.plan_cancel_at_period_end = True
+    updated = CompanyRepository(session).update(company)
+    logger.info("Billing: scheduled cancellation for company %s at period end", company.id)
+    return updated
+
+
+def set_cancel_flag(session, company: Company, cancel: bool) -> Company:
+    """Sync the local cancel-at-period-end flag (e.g. from a Stripe webhook)."""
+    from app.repositories import CompanyRepository
+
+    company.plan_cancel_at_period_end = bool(cancel)
+    return CompanyRepository(session).update(company)

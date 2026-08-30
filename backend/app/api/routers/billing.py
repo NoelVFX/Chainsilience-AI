@@ -20,11 +20,13 @@ from app.models.entities import User
 from app.repositories import CompanyRepository
 from app.services.billing import (
     activate_company,
+    cancel_subscription,
     deactivate_company,
     gate_active,
     get_stripe,
     is_entitled,
     plan_line_item,
+    set_cancel_flag,
     stripe_configured,
 )
 
@@ -50,6 +52,7 @@ class StatusResponse(BaseModel):
     entitled: bool
     gate_enabled: bool
     stripe_configured: bool
+    cancel_at_period_end: bool = False
 
 
 @router.get("/status", response_model=StatusResponse)
@@ -64,6 +67,7 @@ def billing_status(
         entitled=demo or is_entitled(company),
         gate_enabled=gate_active(),
         stripe_configured=stripe_configured(),
+        cancel_at_period_end=bool(company and company.plan_cancel_at_period_end),
     )
 
 
@@ -147,6 +151,42 @@ def verify_checkout(
     return StatusResponse(
         plan=company.plan, active=company.plan_active, entitled=is_entitled(company),
         gate_enabled=gate_active(), stripe_configured=stripe_configured(),
+        cancel_at_period_end=company.plan_cancel_at_period_end,
+    )
+
+
+@router.post("/cancel", response_model=StatusResponse)
+def cancel_plan(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> StatusResponse:
+    """Cancel the current plan at the end of the billing period.
+
+    Billing stops for the next cycle and the plan is scheduled to end; the
+    company keeps access until the current paid period runs out. Idempotent —
+    cancelling an already-cancelling plan is a no-op.
+    """
+    if user.company_id is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active plan to cancel.")
+    repo = CompanyRepository(session)
+    company = repo.get(user.company_id)
+    if company is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Company not found.")
+    if not company.plan_active or company.plan not in {"growth", "enterprise"}:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No active paid plan to cancel.")
+
+    try:
+        company = cancel_subscription(session, company)
+    except Exception as exc:  # noqa: BLE001 — surface a clean message to the UI
+        logger.warning("Stripe subscription cancel failed: %s", exc)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "Could not cancel the subscription."
+        ) from exc
+
+    return StatusResponse(
+        plan=company.plan, active=company.plan_active, entitled=is_entitled(company),
+        gate_enabled=gate_active(), stripe_configured=stripe_configured(),
+        cancel_at_period_end=company.plan_cancel_at_period_end,
     )
 
 
@@ -179,6 +219,12 @@ async def stripe_webhook(request: Request, session: Session = Depends(get_sessio
                     session, company, plan=plan,
                     customer_id=obj.get("customer"), subscription_id=obj.get("subscription"),
                 )
+    elif etype == "customer.subscription.updated":
+        # Keep the local cancel-at-period-end flag in sync with Stripe (e.g. the
+        # user cancels/resumes from the Stripe portal instead of our button).
+        company = repo.get_by_subscription_id(obj.get("id", ""))
+        if company:
+            set_cancel_flag(session, company, bool(obj.get("cancel_at_period_end")))
     elif etype == "customer.subscription.deleted":
         company = repo.get_by_subscription_id(obj.get("id", ""))
         if company:

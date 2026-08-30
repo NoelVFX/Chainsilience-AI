@@ -97,9 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="mt-auto border-t border-line pt-4">
           <button
-            onClick={() => {
-              window.location.href = "/#pricing";
-            }}
+            onClick={() => router.push("/billing")}
             className="mb-1 flex w-full items-center justify-between rounded-[10px] px-3.5 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
           >
             <span>
