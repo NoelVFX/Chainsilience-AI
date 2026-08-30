@@ -2,11 +2,13 @@
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { DisruptionMap } from "@/components/DisruptionMap";
 import { EarthLoader } from "@/components/EarthLoader";
 import { FadeUp } from "@/components/motion";
+import { UpdateCompanyModal } from "@/components/UpdateCompanyModal";
 import { useDashboard, useIngestNews } from "@/lib/hooks";
 
 /** Screen 3 — Dashboard: KPI row, Top Risks, disruption map, news, actions. */
@@ -14,6 +16,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { data, isLoading, isError, error, refetch, isFetching } = useDashboard();
   const ingest = useIngestNews();
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <AppShell>
@@ -24,15 +27,26 @@ export default function DashboardPage() {
             Real-time view of global disruptions affecting your supply chain
           </p>
         </div>
-        <button
-          onClick={() => ingest.mutate()}
-          disabled={ingest.isPending}
-          className="btn-ghost px-4 py-2"
-          style={{ color: "#22d3ee", borderColor: "rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.1)" }}
-        >
-          {ingest.isPending ? "Scanning news…" : "↻ Ingest live news"}
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setEditOpen(true)}
+            className="btn-ghost px-4 py-2"
+            style={{ color: "#a78bfa", borderColor: "rgba(167,139,250,0.3)", background: "rgba(167,139,250,0.1)" }}
+          >
+            ⚙ Update company data
+          </button>
+          <button
+            onClick={() => ingest.mutate()}
+            disabled={ingest.isPending}
+            className="btn-ghost px-4 py-2"
+            style={{ color: "#22d3ee", borderColor: "rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.1)" }}
+          >
+            {ingest.isPending ? "Scanning news…" : "↻ Ingest live news"}
+          </button>
+        </div>
       </div>
+
+      <UpdateCompanyModal open={editOpen} onClose={() => setEditOpen(false)} />
 
       {ingest.data && (
         <div className="mb-4 rounded-control border border-line bg-inset px-4 py-2.5 text-[12.5px] text-muted">

@@ -139,6 +139,45 @@ export function useOnboarding() {
   });
 }
 
+export interface CompanyProfile {
+  id: number;
+  name: string;
+  industry: string;
+  countries: string;
+  risk_tolerance: string;
+  primary_products: string;
+  data_quality_score: number;
+}
+
+/** The current company's profile — used to prefill the "update data" form. */
+export function useCompany(enabled = true) {
+  return useQuery({
+    queryKey: ["company"],
+    queryFn: () => api.get<CompanyProfile>("/company"),
+    enabled,
+  });
+}
+
+/** Save an edited profile and REBUILD the twin + Neo4j graph from scratch. */
+export function useRebuildCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      company_name: string;
+      industry: string;
+      countries: string;
+      risk_tolerance: string;
+      primary_products: string;
+    }) => api.post<CompanyProfile>("/company/rebuild", payload),
+    onSuccess: () => {
+      // The rebuild replaces the twin, risks and actions — refresh everything.
+      for (const key of [["company"], ["dashboard"], ["risks"], ["actions"], ["risk"], ["scenarios"]]) {
+        qc.invalidateQueries({ queryKey: key });
+      }
+    },
+  });
+}
+
 export function useUploadTwinCsv() {
   return useMutation({
     mutationFn: (file: File) => {

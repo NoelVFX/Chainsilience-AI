@@ -10,7 +10,13 @@ from sqlmodel import Session
 from app.api.deps import get_current_company_id, get_current_user
 from app.db.session import get_session
 from app.models.entities import Company, Node, NodeType, User
-from app.repositories import CompanyRepository, TwinRepository, UserRepository
+from app.repositories import (
+    ActionRepository,
+    CompanyRepository,
+    RiskRepository,
+    TwinRepository,
+    UserRepository,
+)
 from app.schemas.domain import CompanyResponse, OnboardingRequest
 from app.services.digital_twin import DigitalTwinService
 from app.services.rag_company import get_company_rag
@@ -58,6 +64,49 @@ def onboarding(
     # Index the freshly-built company data for RAG (best-effort, off the request).
     background_tasks.add_task(get_company_rag().reindex, company.id)
     # Mirror the twin into the Neo4j knowledge graph (no-op if not configured).
+    background_tasks.add_task(_sync_graph_store, company.id)
+
+    return CompanyResponse.model_validate(company)
+
+
+@router.post("/rebuild", response_model=CompanyResponse)
+def rebuild_company(
+    payload: OnboardingRequest,
+    background_tasks: BackgroundTasks,
+    company_id: int = Depends(get_current_company_id),
+    session: Session = Depends(get_session),
+) -> CompanyResponse:
+    """Update the company profile and REBUILD its Digital Twin from scratch.
+
+    Unlike onboarding (which leaves an existing twin untouched), this is the
+    "update my company data" action: it saves the edited profile, clears the
+    current twin + risks + actions, rebuilds a fresh twin from the new profile,
+    re-seeds starter risks, and re-creates the Neo4j knowledge graph.
+    """
+    companies = CompanyRepository(session)
+    company = companies.get(company_id)
+    if company is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Company not found")
+
+    company.name = payload.company_name
+    company.industry = payload.industry
+    company.countries = payload.countries
+    company.risk_tolerance = payload.risk_tolerance
+    company.primary_products = payload.primary_products
+    company = companies.update(company)
+
+    # Wipe derived data so the rebuild reflects the new profile cleanly.
+    ActionRepository(session).clear(company_id)
+    RiskRepository(session).clear(company_id)
+    TwinRepository(session).clear(company_id)
+
+    # Rebuild the twin + starter risks from the updated profile.
+    builder = TwinBuilder(session)
+    builder.bootstrap_from_profile(company)
+    builder.seed_starter_risks(company)
+
+    # Re-index RAG and re-create the Neo4j graph (best-effort, off the request).
+    background_tasks.add_task(get_company_rag().reindex, company.id)
     background_tasks.add_task(_sync_graph_store, company.id)
 
     return CompanyResponse.model_validate(company)

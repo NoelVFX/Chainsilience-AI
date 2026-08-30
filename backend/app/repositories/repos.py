@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from app.models.entities import (
     Action,
@@ -186,6 +186,13 @@ class TwinRepository:
         self.session.refresh(edge)
         return edge
 
+    def clear(self, company_id: int, commit: bool = True) -> None:
+        """Delete the company's entire Digital Twin (nodes + edges)."""
+        self.session.exec(delete(Edge).where(Edge.company_id == company_id))
+        self.session.exec(delete(Node).where(Node.company_id == company_id))
+        if commit:
+            self.session.commit()
+
 
 class NewsRepository:
     def __init__(self, session: Session) -> None:
@@ -256,6 +263,12 @@ class RiskRepository:
         self.session.refresh(risk)
         return risk
 
+    def clear(self, company_id: int, commit: bool = True) -> None:
+        """Delete all of a company's risks (e.g. on a full twin rebuild)."""
+        self.session.exec(delete(Risk).where(Risk.company_id == company_id))
+        if commit:
+            self.session.commit()
+
 
 class ActionRepository:
     def __init__(self, session: Session) -> None:
@@ -317,6 +330,12 @@ class ActionRepository:
     def delete(self, action: Action) -> None:
         self.session.delete(action)
         self.session.commit()
+
+    def clear(self, company_id: int, commit: bool = True) -> None:
+        """Delete all of a company's actions (e.g. on a full twin rebuild)."""
+        self.session.exec(delete(Action).where(Action.company_id == company_id))
+        if commit:
+            self.session.commit()
 
 
 class EmailDraftRepository:
