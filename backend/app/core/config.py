@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -159,7 +160,11 @@ class Settings(BaseSettings):
     # source of truth (unchanged behaviour). Use a Neo4j Aura connection URI
     # (neo4j+s://...) in production, or bolt://localhost:7687 locally.
     neo4j_uri: str | None = None
-    neo4j_user: str = "neo4j"
+    # Accept BOTH env-var names: Neo4j Aura's downloaded credentials file uses
+    # NEO4J_USERNAME, while NEO4J_USER is the common convention — either works.
+    neo4j_user: str = Field(
+        default="neo4j", validation_alias=AliasChoices("neo4j_user", "neo4j_username")
+    )
     neo4j_password: str | None = None
     neo4j_database: str = "neo4j"
 
