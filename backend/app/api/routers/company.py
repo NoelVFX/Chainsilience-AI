@@ -13,6 +13,8 @@ from app.models.entities import Company, Node, NodeType, User
 from app.repositories import (
     ActionRepository,
     CompanyRepository,
+    EmailDraftRepository,
+    FeedbackRepository,
     RiskRepository,
     TwinRepository,
     UserRepository,
@@ -96,6 +98,11 @@ def rebuild_company(
     company = companies.update(company)
 
     # Wipe derived data so the rebuild reflects the new profile cleanly.
+    # Order matters: Postgres enforces foreign keys, so delete children first —
+    # feedback (→ actions) and email drafts (→ risks), then actions (→ risks),
+    # then risks, then the twin.
+    FeedbackRepository(session).clear(company_id)
+    EmailDraftRepository(session).clear(company_id)
     ActionRepository(session).clear(company_id)
     RiskRepository(session).clear(company_id)
     TwinRepository(session).clear(company_id)

@@ -365,6 +365,12 @@ class EmailDraftRepository:
         self.session.refresh(draft)
         return draft
 
+    def clear(self, company_id: int, commit: bool = True) -> None:
+        """Delete all of a company's saved email drafts (they FK to risks)."""
+        self.session.exec(delete(EmailDraft).where(EmailDraft.company_id == company_id))
+        if commit:
+            self.session.commit()
+
 
 class FeedbackRepository:
     def __init__(self, session: Session) -> None:
@@ -375,3 +381,9 @@ class FeedbackRepository:
         self.session.commit()
         self.session.refresh(feedback)
         return feedback
+
+    def clear(self, company_id: int, commit: bool = True) -> None:
+        """Delete all of a company's feedback rows (they FK to actions)."""
+        self.session.exec(delete(Feedback).where(Feedback.company_id == company_id))
+        if commit:
+            self.session.commit()
