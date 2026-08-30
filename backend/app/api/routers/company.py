@@ -37,8 +37,9 @@ def onboarding(
     """Create/attach the caller's company and build a working Digital Twin.
 
     A brand-new company is bootstrapped into a coherent, connected twin from its
-    profile and seeded with a couple of starter risks (via the real pipeline) so
-    the dashboard is immediately populated rather than empty.
+    profile. Risks are NOT fabricated — the dashboard populates from real scraped
+    news via the pipeline/poller. Re-onboarding with a changed profile rebuilds
+    the twin so its supplier countries follow the new profile (no stale geography).
     """
     companies = CompanyRepository(session)
     if user.company_id:
@@ -46,6 +47,9 @@ def onboarding(
         company.name = payload.company_name
     else:
         company = Company(name=payload.company_name)
+
+    prev_countries = company.countries or ""
+    prev_products = company.primary_products or ""
 
     company.industry = payload.industry
     company.countries = payload.countries
@@ -58,10 +62,15 @@ def onboarding(
         user.company_id = company.id
         UserRepository(session).add(user)
 
-    # Build a starter twin + risks if this company has no twin yet.
-    builder = TwinBuilder(session)
-    if builder.bootstrap_from_profile(company):
-        builder.seed_starter_risks(company)
+    # First-time: bootstrap the twin. Re-onboarding with a changed country/product
+    # profile: rebuild it so the twin's asset geography reflects the new profile
+    # (and stale suppliers/risks from the old countries are cleared) — otherwise
+    # relevance would keep matching news for countries the user no longer operates in.
+    twin_repo = TwinRepository(session)
+    if not twin_repo.nodes(company.id):
+        TwinBuilder(session).bootstrap_from_profile(company)
+    elif payload.countries != prev_countries or payload.primary_products != prev_products:
+        _rebuild_twin(session, company)
 
     # Index the freshly-built company data for RAG (best-effort, off the request).
     background_tasks.add_task(get_company_rag().reindex, company.id)
@@ -80,10 +89,10 @@ def rebuild_company(
 ) -> CompanyResponse:
     """Update the company profile and REBUILD its Digital Twin from scratch.
 
-    Unlike onboarding (which leaves an existing twin untouched), this is the
-    "update my company data" action: it saves the edited profile, clears the
+    The "update my company data" action: it saves the edited profile, clears the
     current twin + risks + actions, rebuilds a fresh twin from the new profile,
-    re-seeds starter risks, and re-creates the Neo4j knowledge graph.
+    and re-creates the Neo4j knowledge graph. No synthetic risks are seeded —
+    risks come only from real scraped news.
     """
     companies = CompanyRepository(session)
     company = companies.get(company_id)
@@ -97,20 +106,7 @@ def rebuild_company(
     company.primary_products = payload.primary_products
     company = companies.update(company)
 
-    # Wipe derived data so the rebuild reflects the new profile cleanly.
-    # Order matters: Postgres enforces foreign keys, so delete children first —
-    # feedback (→ actions) and email drafts (→ risks), then actions (→ risks),
-    # then risks, then the twin.
-    FeedbackRepository(session).clear(company_id)
-    EmailDraftRepository(session).clear(company_id)
-    ActionRepository(session).clear(company_id)
-    RiskRepository(session).clear(company_id)
-    TwinRepository(session).clear(company_id)
-
-    # Rebuild the twin + starter risks from the updated profile.
-    builder = TwinBuilder(session)
-    builder.bootstrap_from_profile(company)
-    builder.seed_starter_risks(company)
+    _rebuild_twin(session, company)
 
     # Re-index RAG and re-create the Neo4j graph (best-effort, off the request).
     background_tasks.add_task(get_company_rag().reindex, company.id)
@@ -226,6 +222,23 @@ def twin_dependency_paths(
         start = suppliers[0].key
 
     return service.dependency_paths(company_id, start)
+
+
+def _rebuild_twin(session: Session, company: Company) -> None:
+    """Clear a company's derived data and rebuild its twin from the profile.
+
+    Deletes in FK-safe order (Postgres enforces foreign keys): feedback
+    (→ actions) and email drafts (→ risks), then actions, risks, and the twin —
+    then bootstraps a fresh twin from the current profile. No synthetic starter
+    risks are seeded; risks come only from real scraped news via the pipeline.
+    """
+    cid = company.id
+    FeedbackRepository(session).clear(cid)
+    EmailDraftRepository(session).clear(cid)
+    ActionRepository(session).clear(cid)
+    RiskRepository(session).clear(cid)
+    TwinRepository(session).clear(cid)
+    TwinBuilder(session).bootstrap_from_profile(company)
 
 
 def _sync_graph_store(company_id: int) -> None:
