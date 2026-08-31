@@ -49,14 +49,19 @@ _DISRUPTION = (
     "hack", "ransomware", "default", "bankruptcy", "grounded", "diversion",
 )
 
-# Human-interest / casualty framing that marks a story as a humanitarian or
-# tourism disaster rather than a supply-chain disruption. When the headline is
-# dominated by these (e.g. "hundreds of foreigners missing in Tibet after floods")
-# it is dropped from the geo+disruption path, even if it mentions a disruption
-# word in a supplier country. A named company asset/commodity still overrides.
-_HUMANITARIAN = (
+# Human-interest framing that marks a story as NOT a supply-chain disruption,
+# even when it mentions a disruption word in a supplier country — humanitarian /
+# casualty disasters ("hundreds of foreigners missing in Tibet after floods") and
+# crime / justice / personal stories ("Hongkonger sent back to jail as storm
+# delays deportation"). Dropped from the geo+disruption path; a named company
+# asset/commodity still overrides.
+_OFF_TOPIC = (
+    # casualty / disaster human-interest
     "foreigner", "tourist", "missing", "rescue", "survivor", "bodies",
     "mourn", "evacuat", "relief", "death toll", "casualt", "villagers",
+    # crime / justice / personal
+    "jail", "prison", "arrest", "deport", "police", "murder", "smuggl",
+    "kidnap", "hostage", "convicted", "sentenced", "freed",
 )
 
 # Commodity terms that broaden matching beyond exact component names.
@@ -170,14 +175,15 @@ class RelevanceAgent:
         strong = sorted(set(strong))
         geo = sorted(set(geo))
 
-        # A humanitarian / tourism-casualty story is not a supply-chain
-        # disruption even if it mentions a disruption word in a supplier country.
-        humanitarian = any(h in title for h in _HUMANITARIAN)
+        # A human-interest story (casualty/disaster or crime/justice) is not a
+        # supply-chain disruption even if it names a disruption word in a
+        # supplier country.
+        off_topic = any(h in title for h in _OFF_TOPIC)
 
         # Relevant when a named asset/commodity is touched, OR when a disruption
         # coincides with a country where the company actually has an asset (and the
-        # story isn't a pure human-interest disaster). Geography alone is dropped.
-        geo_disruption = bool(geo) and bool(disruption) and not humanitarian
+        # story isn't human-interest). Geography alone is dropped.
+        geo_disruption = bool(geo) and bool(disruption) and not off_topic
         relevant = bool(strong) or geo_disruption
 
         matched = strong + ([f"{g} + {disruption[0]}" for g in geo] if geo_disruption else [])
@@ -186,9 +192,9 @@ class RelevanceAgent:
             reason = "Touches company paths: " + ", ".join(matched[:4]) + "."
         else:
             conf = 0.5
-            if geo and disruption and humanitarian:
+            if geo and disruption and off_topic:
                 reason = (
-                    f"A humanitarian/casualty story in {geo[0]}, not a supply-chain "
+                    f"A human-interest story in {geo[0]}, not a supply-chain "
                     "disruption — dropped."
                 )
             elif geo and not disruption:
