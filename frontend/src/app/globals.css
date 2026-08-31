@@ -17,24 +17,20 @@ body {
 }
 
 body {
+  /* Static slate ground with a single faint accent vignette — no hue-shift. */
   background:
-    radial-gradient(circle at 15% 10%, rgba(34, 211, 238, 0.18) 0%, transparent 42%),
-    radial-gradient(circle at 85% 15%, rgba(139, 92, 246, 0.18) 0%, transparent 45%),
-    radial-gradient(circle at 50% 100%, rgba(59, 130, 246, 0.16) 0%, transparent 50%),
-    #080b13;
-  background-size: 180% 180%;
-  background-position: 0% 0%;
-  color: #e7ecf5;
+    radial-gradient(120% 80% at 50% -8%, rgba(91, 141, 239, 0.05), transparent 60%),
+    #0b0e15;
+  color: #e7eaf1;
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  animation: bgShift 22s ease-in-out infinite;
 }
 
 a {
-  color: #22d3ee;
+  color: #5b8def;
 }
 a:hover {
-  color: #67e8f9;
+  color: #7ba3f4;
 }
 
 ::-webkit-scrollbar {
@@ -86,46 +82,60 @@ a:hover {
            px-3.5 py-2.5 text-text text-sm outline-none transition-colors;
   }
   .panel-input:focus {
-    border-color: rgba(34, 211, 238, 0.5);
+    border-color: rgba(91, 141, 239, 0.55);
+    box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.12);
   }
   .btn-primary {
-    @apply text-center font-bold text-sm rounded-control cursor-pointer
-           transition-transform transition-shadow duration-200;
-    background: linear-gradient(135deg, #22d3ee, #3b82f6);
-    color: #04121a;
+    @apply text-center font-semibold text-sm rounded-control cursor-pointer
+           transition-colors duration-150;
+    background: #5b8def;
+    color: #ffffff;
   }
   .btn-primary:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 8px 30px rgba(34, 211, 238, 0.45);
+    background: #6f9bf2;
+  }
+  .btn-primary:active {
+    transform: translateY(1px);
   }
   .btn-ghost {
     @apply text-center font-semibold text-sm rounded-control cursor-pointer
-           border border-line-strong text-text transition-shadow duration-200;
+           border border-line-strong text-text transition-colors duration-150;
     background: rgba(148, 163, 184, 0.08);
   }
   .btn-ghost:hover {
-    box-shadow: 0 0 20px rgba(148, 163, 184, 0.2);
-    border-color: rgba(148, 163, 184, 0.4);
+    border-color: rgba(148, 163, 184, 0.32);
+    background: rgba(148, 163, 184, 0.12);
+  }
+  /* Mono, tabular numerals for metrics / scores / timestamps. */
+  .num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Hover lift + subtle 3D tilt + cyan glow (KPI, scenario & action cards). */
+/* Hover: lift + accent glow (steel-blue, restrained — not the old cyan neon). */
 .tilt-card {
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 .tilt-card:hover {
-  /* lift + blue neon glow */
-  transform: translateY(-6px) perspective(600px) rotateX(3deg);
-  box-shadow: 0 16px 38px rgba(59, 130, 246, 0.28), 0 0 26px rgba(59, 130, 246, 0.5);
-  border-color: rgba(59, 130, 246, 0.6);
+  transform: translateY(-3px);
+  border-color: rgba(91, 141, 239, 0.45);
+  box-shadow: 0 10px 30px rgba(91, 141, 239, 0.16), 0 0 22px rgba(91, 141, 239, 0.30);
 }
 .tilt-card-sm {
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 .tilt-card-sm:hover {
-  transform: translateY(-4px) perspective(500px) rotateX(2deg);
-  box-shadow: 0 14px 30px rgba(59, 130, 246, 0.24), 0 0 20px rgba(59, 130, 246, 0.45);
-  border-color: rgba(59, 130, 246, 0.55);
+  transform: translateY(-3px);
+  border-color: rgba(91, 141, 239, 0.45);
+  box-shadow: 0 10px 30px rgba(91, 141, 239, 0.16), 0 0 22px rgba(91, 141, 239, 0.30);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tilt-card:hover,
+  .tilt-card-sm:hover {
+    transform: none;
+  }
 }
 
 /* On-load entrance for card grids — pure CSS so it never depends on JS/hydration
@@ -149,21 +159,21 @@ a:hover {
 }
 .row-hover:hover {
   background: rgba(148, 163, 184, 0.06);
-  box-shadow: inset 0 0 20px rgba(34, 211, 238, 0.1);
+  box-shadow: none;
 }
 .news-hover {
   transition: background 0.2s ease;
 }
 .news-hover:hover {
-  background: rgba(34, 211, 238, 0.05);
+  background: rgba(148, 163, 184, 0.05);
 }
-/* Dropzone glow on hover. */
+/* Dropzone — accent border on hover, no glow. */
 .dropzone {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .dropzone:hover {
-  border-color: #22d3ee;
-  box-shadow: inset 0 0 24px rgba(34, 211, 238, 0.25);
+  border-color: rgba(91, 141, 239, 0.55);
+  box-shadow: none;
 }
 
 /* ------------------------------------------------------------------ *
@@ -185,7 +195,7 @@ a:hover {
   transition: transform 700ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 300ms ease;
 }
 .l3d-card.l3d-active {
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5), 0 0 80px rgba(34, 211, 238, 0.18);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
 /* Inner layers float above the card surface for parallax during tilt. */
 .l3d-card .depth {
@@ -293,42 +303,42 @@ a:hover {
   pointer-events: none;
   background-color: #000;
   background-image:
-    radial-gradient(4px 100px at 0px 235px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 235px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 117.5px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 252px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 252px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 126px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 150px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 150px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 75px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 253px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 253px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 126.5px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 204px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 204px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 102px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 134px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 134px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 67px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 179px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 179px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 89.5px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 299px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 299px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 149.5px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 215px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 215px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 107.5px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 281px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 281px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 140.5px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 158px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 158px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 79px, #22d3ee 100%, #0000 150%),
-    radial-gradient(4px 100px at 0px 210px, #22d3ee, #0000),
-    radial-gradient(4px 100px at 300px 210px, #22d3ee, #0000),
-    radial-gradient(1.5px 1.5px at 150px 105px, #22d3ee 100%, #0000 150%);
+    radial-gradient(4px 100px at 0px 235px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 235px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 117.5px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 252px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 252px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 126px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 150px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 150px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 75px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 253px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 253px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 126.5px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 204px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 204px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 102px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 134px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 134px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 67px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 179px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 179px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 89.5px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 299px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 299px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 149.5px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 215px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 215px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 107.5px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 281px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 281px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 140.5px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 158px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 158px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 79px, #5b8def 100%, #0000 150%),
+    radial-gradient(4px 100px at 0px 210px, #5b8def, #0000),
+    radial-gradient(4px 100px at 300px 210px, #5b8def, #0000),
+    radial-gradient(1.5px 1.5px at 150px 105px, #5b8def 100%, #0000 150%);
   background-size:
     300px 235px,
     300px 235px,

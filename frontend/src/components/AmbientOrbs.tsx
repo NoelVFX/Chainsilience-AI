@@ -1,44 +1,29 @@
 "use client";
 
 /**
- * Decorative, slowly-floating, hue-shifting color orbs behind the content —
- * the "living" background from the design. Pointer-events are disabled so they
- * never intercept clicks.
+ * A single, static, very faint accent glow for depth — no animation, no
+ * hue-shift, no drifting orbs. The restrained "Slate & Signal" direction:
+ * the ground stays calm so the data carries the color.
  */
 export function AmbientOrbs({ variant = "app" }: { variant?: "auth" | "app" }) {
-  if (variant === "auth") {
-    return <div className="rain-bg" aria-hidden="true" />;
-  }
+  const auth = variant === "auth";
   return (
-    <>
-      <div
-        className="orb"
-        style={{
-          zIndex: -1,
-          top: -140,
-          right: -120,
-          width: 480,
-          height: 480,
-          filter: "blur(30px)",
-          background:
-            "radial-gradient(circle at 40% 40%,rgba(139,92,246,0.22),rgba(139,92,246,0) 70%)",
-          animation: "floatOrbA 16s ease-in-out infinite, hueBlur30 20s linear infinite",
-        }}
-      />
-      <div
-        className="orb"
-        style={{
-          zIndex: -1,
-          bottom: -160,
-          left: 200,
-          width: 520,
-          height: 520,
-          filter: "blur(30px)",
-          background:
-            "radial-gradient(circle at 50% 50%,rgba(34,211,238,0.16),rgba(34,211,238,0) 70%)",
-          animation: "floatOrbB 18s ease-in-out infinite, hueBlur30 24s linear infinite",
-        }}
-      />
-    </>
+    <div
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        zIndex: -1,
+        top: auth ? "-8%" : -160,
+        right: auth ? "50%" : -140,
+        transform: auth ? "translateX(50%)" : undefined,
+        width: 640,
+        height: 640,
+        borderRadius: "50%",
+        pointerEvents: "none",
+        filter: "blur(70px)",
+        background:
+          "radial-gradient(circle at 50% 40%, rgba(91,141,239,0.10), rgba(91,141,239,0) 70%)",
+      }}
+    />
   );
 }

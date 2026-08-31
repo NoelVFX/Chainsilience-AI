@@ -7,7 +7,7 @@ export function Logo({ size = 34, font = 19 }: { size?: number; font?: number })
           width: size,
           height: size,
           borderRadius: size >= 32 ? 9 : 8,
-          background: "linear-gradient(135deg,#22d3ee,#3b82f6)",
+          background: "linear-gradient(135deg,#5b8def,#5b8def)",
           flexShrink: 0,
         }}
       />

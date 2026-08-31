@@ -45,7 +45,7 @@ function BillingSuccessInner() {
       <FadeUp y={22} className="relative z-10 w-[420px] max-w-full">
         <div
           className="rounded-panel border border-line bg-surface p-10 text-center"
-          style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(34,211,238,0.08)" }}
+          style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(91, 141, 239,0.08)" }}
         >
           <div className="flex justify-center">
             <Logo />

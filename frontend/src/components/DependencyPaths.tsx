@@ -6,7 +6,7 @@ import { useRiskPaths, type DependencyPathNode } from "@/lib/hooks";
 const TYPE_COLOR: Record<string, string> = {
   supplier: "#f87171",
   component: "#fbbf24",
-  product: "#22d3ee",
+  product: "#5b8def",
   factory: "#a78bfa",
   warehouse: "#a78bfa",
   port: "#34d399",

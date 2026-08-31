@@ -179,7 +179,7 @@ export default function OnboardingPage() {
                 width: 30,
                 height: 30,
                 borderRadius: 8,
-                background: "linear-gradient(135deg,#22d3ee,#3b82f6)",
+                background: "linear-gradient(135deg,#5b8def,#5b8def)",
               }}
             />
             <div className="text-[17px] font-extrabold text-text">Chainsilience AI</div>
@@ -526,7 +526,7 @@ function OtpInput({
             }
           }}
           className="h-14 w-12 rounded-control border border-line-strong bg-inset text-center text-2xl font-bold text-text outline-none transition-colors focus:border-cyan"
-          style={{ caretColor: "#22d3ee" }}
+          style={{ caretColor: "#5b8def" }}
         />
       ))}
     </div>

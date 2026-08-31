@@ -57,7 +57,7 @@ export default function LoginPage() {
         onMouseLeave={() => setTilt(null)}
         className={`l3d-card rounded-panel border border-line bg-surface p-10 ${resting ? "l3d-resting" : "l3d-active"}`}
         style={{
-          boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(34,211,238,0.08)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.45), 0 0 60px rgba(91, 141, 239,0.08)",
           transform: cardTransform,
         }}
       >

@@ -107,7 +107,7 @@ export default function RiskDetailPage() {
                     </div>
                     <AnimatedBar
                       pct={f.value}
-                      gradient="linear-gradient(90deg,#22d3ee,#3b82f6)"
+                      gradient="linear-gradient(90deg,#5b8def,#5b8def)"
                     />
                   </div>
                 ))}
@@ -127,7 +127,7 @@ export default function RiskDetailPage() {
                   {data.chain.map((node, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div className="flex flex-col items-center">
-                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#3b82f6" }} />
+                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#5b8def" }} />
                         {i < data.chain.length - 1 && (
                           <span style={{ width: 1.5, flex: 1, minHeight: 22, background: "rgba(148,163,184,0.2)" }} />
                         )}

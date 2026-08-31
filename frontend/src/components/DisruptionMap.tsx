@@ -18,7 +18,7 @@ interface Point {
 const SEV_COLOR: Record<string, string> = {
   critical: "#f87171",
   high: "#fbbf24",
-  medium: "#3b82f6",
+  medium: "#5b8def",
   low: "#34d399",
 };
 
@@ -64,7 +64,7 @@ function SvgMap({ points }: { points: Point[] }) {
       ))}
       {points.map((p, i) => {
         const { x, y } = project(p.lat, p.lon);
-        const color = SEV_COLOR[p.severity] ?? "#22d3ee";
+        const color = SEV_COLOR[p.severity] ?? "#5b8def";
         const r = 0.9 + (p.score / 100) * 1.6;
         return (
           <g key={i}>

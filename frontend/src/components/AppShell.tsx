@@ -15,7 +15,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", dot: "#22d3ee" },
+  { label: "Dashboard", href: "/dashboard", dot: "#5b8def" },
   { label: "Risk Detail", href: "/risk/1", dot: "#f87171" },
   { label: "Scenario Simulator", href: "/simulator", dot: "#fbbf24" },
   { label: "Action Center", href: "/action-center", dot: "#34d399" },
@@ -56,7 +56,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 width: 28,
                 height: 28,
                 borderRadius: 8,
-                background: "linear-gradient(135deg,#22d3ee,#3b82f6)",
+                background: "linear-gradient(135deg,#5b8def,#5b8def)",
                 flexShrink: 0,
               }}
             />
@@ -75,9 +75,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 style={{
                   color: active ? "#e7ecf5" : "#8b98b3",
                   fontWeight: active ? 600 : 500,
-                  background: active ? "rgba(34,211,238,0.08)" : "transparent",
+                  background: active ? "rgba(91, 141, 239,0.08)" : "transparent",
                   border: active
-                    ? "1px solid rgba(34,211,238,0.25)"
+                    ? "1px solid rgba(91, 141, 239,0.25)"
                     : "1px solid transparent",
                 }}
               >

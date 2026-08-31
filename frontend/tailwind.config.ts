@@ -10,33 +10,39 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        base: "#080b13",
-        surface: "#111827",
-        inset: "#0d1420",
-        sidebar: "#0d1220",
-        line: "rgba(148,163,184,0.14)",
-        "line-strong": "rgba(148,163,184,0.18)",
-        text: "#e7ecf5",
-        muted: "#8b98b3",
-        cyan: "#22d3ee",
-        blue: "#3b82f6",
-        success: "#34d399",
-        warning: "#fbbf24",
-        danger: "#f87171",
+        // Slate & Signal — chosen cool slate grounds, one restrained blue accent.
+        base: "#0b0e15",
+        surface: "#141922",
+        inset: "#0e131b",
+        sidebar: "#0f141d",
+        line: "rgba(148,163,184,0.12)",
+        "line-strong": "rgba(148,163,184,0.20)",
+        text: "#e7eaf1",
+        muted: "#8b94a6",
+        // `cyan`/`blue` are kept as token names but repurposed to the single
+        // steel-blue accent so every accent utility follows the new direction.
+        cyan: "#5b8def",
+        blue: "#5b8def",
+        // Severity — considered, desaturated (these are the only loud colors).
+        success: "#4bb384",
+        warning: "#e0994a",
+        danger: "#e0575b",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       borderRadius: {
-        control: "9px",
-        card: "14px",
-        panel: "16px",
+        control: "8px",
+        card: "12px",
+        panel: "14px",
       },
       boxShadow: {
-        card: "0 20px 60px rgba(0,0,0,0.45)",
-        glow: "0 0 60px rgba(34,211,238,0.08)",
-        "glow-cyan": "0 8px 30px rgba(34,211,238,0.45)",
-        "lift-cyan": "0 14px 34px rgba(34,211,238,0.2)",
+        // Quiet elevation, no colored glow.
+        card: "0 1px 0 rgba(255,255,255,0.02), 0 14px 40px rgba(0,0,0,0.38)",
+        glow: "0 10px 34px rgba(0,0,0,0.34)",
+        "glow-cyan": "0 4px 18px rgba(91,141,239,0.28)",
+        "lift-cyan": "0 10px 26px rgba(0,0,0,0.36)",
       },
       keyframes: {
         floatOrbA: {

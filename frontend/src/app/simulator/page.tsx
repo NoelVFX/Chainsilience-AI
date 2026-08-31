@@ -114,9 +114,9 @@ function SimulatorInner() {
               onClick={() => setPriority(p.id)}
               className="rounded-control border px-3 py-1.5 text-[12px] font-semibold transition-colors"
               style={{
-                borderColor: active ? "rgba(34,211,238,0.5)" : "rgba(148,163,184,0.18)",
-                color: active ? "#22d3ee" : "#8b98b3",
-                background: active ? "rgba(34,211,238,0.08)" : "transparent",
+                borderColor: active ? "rgba(91, 141, 239,0.5)" : "rgba(148,163,184,0.18)",
+                color: active ? "#5b8def" : "#8b98b3",
+                background: active ? "rgba(91, 141, 239,0.08)" : "transparent",
               }}
             >
               {p.label}
@@ -146,7 +146,7 @@ function SimulatorInner() {
                 }}
                 className="tilt-card relative h-full w-full rounded-card bg-surface p-[18px] text-left"
                 style={{
-                  border: active ? "1.5px solid #22d3ee" : "1px solid rgba(148,163,184,0.14)",
+                  border: active ? "1.5px solid #5b8def" : "1px solid rgba(148,163,184,0.14)",
                 }}
               >
                 {/* rank badge (#1 = best fit for the chosen priority) */}
@@ -169,7 +169,7 @@ function SimulatorInner() {
                       className="h-full rounded-full"
                       style={{
                         width: `${s.score}%`,
-                        background: "linear-gradient(90deg,#22d3ee,#3b82f6)",
+                        background: "linear-gradient(90deg,#5b8def,#5b8def)",
                       }}
                     />
                   </div>

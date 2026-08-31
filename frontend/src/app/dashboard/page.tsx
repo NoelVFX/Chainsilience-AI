@@ -30,16 +30,15 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setEditOpen(true)}
-            className="btn-ghost px-4 py-2"
-            style={{ color: "#a78bfa", borderColor: "rgba(167,139,250,0.3)", background: "rgba(167,139,250,0.1)" }}
+            className="btn-ghost px-4 py-2 text-muted"
           >
-            ⚙ Update company data
+            Update company data
           </button>
           <button
             onClick={() => ingest.mutate()}
             disabled={ingest.isPending}
             className="btn-ghost px-4 py-2"
-            style={{ color: "#22d3ee", borderColor: "rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.1)" }}
+            style={{ color: "#5b8def", borderColor: "rgba(91, 141, 239,0.3)", background: "rgba(91, 141, 239,0.1)" }}
           >
             {ingest.isPending ? "Scanning news…" : "↻ Ingest live news"}
           </button>
@@ -71,7 +70,7 @@ export default function DashboardPage() {
                 className="tilt-card rounded-card border border-line bg-surface p-5"
               >
                 <div className="text-xs font-semibold text-muted">{k.label}</div>
-                <div className="mt-2 text-[28px] font-extrabold text-text">{k.value}</div>
+                <div className="num mt-2 text-[28px] font-semibold text-text">{k.value}</div>
                 <div className="mt-1 text-xs text-muted">{k.sub}</div>
               </motion.div>
             ))}
@@ -182,9 +181,9 @@ export default function DashboardPage() {
                 onClick={() => router.push("/action-center")}
                 className="mt-3.5 rounded-control border py-2.5 text-[13px] font-bold"
                 style={{
-                  background: "rgba(34,211,238,0.1)",
-                  borderColor: "rgba(34,211,238,0.3)",
-                  color: "#22d3ee",
+                  background: "rgba(91, 141, 239,0.1)",
+                  borderColor: "rgba(91, 141, 239,0.3)",
+                  color: "#5b8def",
                 }}
               >
                 Open Action Center

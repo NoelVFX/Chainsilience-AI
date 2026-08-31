@@ -66,7 +66,7 @@ export function UpdateCompanyModal({ open, onClose }: Props) {
     >
       <div
         className="w-[560px] max-w-full rounded-panel border border-line bg-surface p-8"
-        style={{ boxShadow: "0 24px 70px rgba(0,0,0,0.5), 0 0 60px rgba(34,211,238,0.06)" }}
+        style={{ boxShadow: "0 24px 70px rgba(0,0,0,0.5), 0 0 60px rgba(91, 141, 239,0.06)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">

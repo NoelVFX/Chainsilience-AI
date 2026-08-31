@@ -81,9 +81,9 @@ export function EmailModal({ riskId, onClose }: { riskId: number; onClose: () =>
               onClick={() => setKind(k.id)}
               className="rounded-control border px-3 py-1.5 text-[12px] font-semibold transition-colors"
               style={{
-                borderColor: kind === k.id ? "rgba(34,211,238,0.5)" : "rgba(148,163,184,0.18)",
-                color: kind === k.id ? "#22d3ee" : "#8b98b3",
-                background: kind === k.id ? "rgba(34,211,238,0.08)" : "transparent",
+                borderColor: kind === k.id ? "rgba(91, 141, 239,0.5)" : "rgba(148,163,184,0.18)",
+                color: kind === k.id ? "#5b8def" : "#8b98b3",
+                background: kind === k.id ? "rgba(91, 141, 239,0.08)" : "transparent",
               }}
             >
               {k.label}

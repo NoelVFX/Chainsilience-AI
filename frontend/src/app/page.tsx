@@ -70,7 +70,7 @@ const NAV = [
   { label: "Contact", id: "contact" },
 ];
 
-const GRADIENT = "linear-gradient(120deg,#22d3ee 0%,#3b82f6 50%,#8b5cf6 100%)";
+const GRADIENT = "#5b8def";
 
 const FEATURES = [
   {
@@ -204,9 +204,8 @@ export default function LandingPage() {
         className="pointer-events-none fixed inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(1100px 560px at 72% -8%, rgba(34,211,238,0.16), transparent 60%)," +
-            "radial-gradient(900px 520px at 8% 108%, rgba(139,92,246,0.16), transparent 55%)," +
-            "#080b13",
+            "radial-gradient(1100px 560px at 72% -8%, rgba(91,141,239,0.06), transparent 60%)," +
+            "#0b0e15",
         }}
       />
 
@@ -266,8 +265,8 @@ function Navbar({ onLaunch }: { onLaunch: () => void }) {
 
         <button
           onClick={onLaunch}
-          className="rounded-full px-4 py-2 text-[13px] font-bold text-[#04121a] transition-transform hover:-translate-y-0.5"
-          style={{ background: GRADIENT, boxShadow: "0 8px 30px rgba(34,211,238,0.35)" }}
+          className="rounded-full px-4 py-2 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5"
+          style={{ background: GRADIENT, boxShadow: "0 6px 16px rgba(0,0,0,0.32)" }}
         >
           Launch Demo
         </button>
@@ -296,17 +295,17 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
       <FadeUp>
         <span
           className="mb-6 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold text-cyan"
-          style={{ borderColor: "rgba(34,211,238,0.3)", background: "rgba(34,211,238,0.06)" }}
+          style={{ borderColor: "rgba(91, 141, 239,0.3)", background: "rgba(91, 141, 239,0.06)" }}
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-cyan" style={{ boxShadow: "0 0 8px #22d3ee" }} />
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan" style={{ boxShadow: "0 0 8px #5b8def" }} />
           Powered by NVIDIA Nemotron
         </span>
       </FadeUp>
 
       <FadeUp delay={0.05}>
         <h1
-          className="mx-auto max-w-3xl text-[clamp(2.6rem,7vw,5rem)] font-extrabold leading-[1.02] tracking-tight"
-          style={{ WebkitTextFillColor: "transparent", background: GRADIENT, WebkitBackgroundClip: "text", backgroundClip: "text" }}
+          className="mx-auto max-w-3xl text-[clamp(2.6rem,7vw,5rem)] font-extrabold leading-[1.02] tracking-tight text-text"
+          style={{ letterSpacing: "-0.03em" }}
         >
           See supply-chain risk before it reaches your revenue.
         </h1>
@@ -324,8 +323,8 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <button
             onClick={onLaunch}
-            className="rounded-full px-7 py-3.5 text-sm font-bold text-[#04121a] transition-transform hover:-translate-y-0.5"
-            style={{ background: GRADIENT, boxShadow: "0 10px 34px rgba(34,211,238,0.4)" }}
+            className="rounded-full px-7 py-3.5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+            style={{ background: GRADIENT, boxShadow: "0 8px 20px rgba(0,0,0,0.36)" }}
           >
             Launch Demo →
           </button>
@@ -347,14 +346,12 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
             key={s.label}
             className="tilt-card reveal rounded-panel border px-4 py-4 text-center"
             style={{
-              borderColor: "rgba(148,163,184,0.14)",
-              background: "rgba(17,24,39,0.4)",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
+              borderColor: "rgba(148,163,184,0.12)",
+              background: "rgba(20,25,34,0.55)",
               animationDelay: `${i * 0.06}s`,
             }}
           >
-            <div className="text-2xl font-extrabold text-text">{s.value}</div>
+            <div className="num text-2xl font-semibold text-text">{s.value}</div>
             <div className="mt-1 text-[11.5px] text-muted">{s.label}</div>
           </div>
         ))}
@@ -391,7 +388,7 @@ function Features() {
             style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(17,24,39,0.5)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", animationDelay: `${i * 0.06}s` }}
           >
             <div
-              className="mb-4 flex h-11 w-11 items-center justify-center rounded-card text-xl font-bold text-[#04121a]"
+              className="mb-4 flex h-11 w-11 items-center justify-center rounded-card text-xl font-bold text-white"
               style={{ background: GRADIENT }}
             >
               {f.icon}
@@ -423,7 +420,7 @@ function HowItWorks() {
             className="tilt-card reveal rounded-panel border p-6"
             style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(13,20,32,0.5)", animationDelay: `${i * 0.06}s` }}
           >
-            <div className="mb-3 text-3xl font-extrabold" style={{ color: "rgba(34,211,238,0.35)" }}>{s.n}</div>
+            <div className="mb-3 text-3xl font-extrabold" style={{ color: "rgba(91, 141, 239,0.35)" }}>{s.n}</div>
             <h3 className="mb-2 text-[16px] font-bold text-text">{s.t}</h3>
             <p className="text-[13.5px] leading-relaxed text-muted">{s.d}</p>
           </div>
@@ -491,16 +488,16 @@ function Pricing({
             key={p.name}
             className="relative flex flex-col rounded-panel border p-7"
             style={{
-              borderColor: p.highlight ? "rgba(34,211,238,0.4)" : "rgba(148,163,184,0.14)",
-              background: p.highlight ? "rgba(34,211,238,0.06)" : "rgba(17,24,39,0.5)",
-              boxShadow: p.highlight ? "0 20px 60px rgba(34,211,238,0.12)" : "none",
+              borderColor: p.highlight ? "rgba(91, 141, 239,0.4)" : "rgba(148,163,184,0.14)",
+              background: p.highlight ? "rgba(91, 141, 239,0.06)" : "rgba(17,24,39,0.5)",
+              boxShadow: p.highlight ? "0 20px 60px rgba(91, 141, 239,0.12)" : "none",
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
             }}
           >
             {p.highlight && (
               <span
-                className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[11px] font-bold text-[#04121a]"
+                className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[11px] font-bold text-white"
                 style={{ background: GRADIENT }}
               >
                 Most popular
@@ -531,7 +528,7 @@ function Pricing({
               className="mt-7 rounded-control py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
               style={
                 p.highlight
-                  ? { background: GRADIENT, color: "#04121a", boxShadow: "0 8px 30px rgba(34,211,238,0.35)" }
+                  ? { background: GRADIENT, color: "#fff", boxShadow: "0 6px 16px rgba(0,0,0,0.32)" }
                   : { background: "rgba(148,163,184,0.08)", color: "#e7ecf5", border: "1px solid rgba(148,163,184,0.25)" }
               }
             >
@@ -619,8 +616,8 @@ function Contact() {
           <button
             type="button"
             onClick={openScheduler}
-            className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-[#04121a] transition-transform hover:-translate-y-0.5"
-            style={{ background: GRADIENT, boxShadow: "0 8px 30px rgba(34,211,238,0.35)" }}
+            className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+            style={{ background: GRADIENT, boxShadow: "0 6px 16px rgba(0,0,0,0.32)" }}
           >
             📅 Schedule a meeting
           </button>
