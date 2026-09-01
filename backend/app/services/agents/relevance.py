@@ -79,6 +79,8 @@ def build_profile(graph: TwinGraph, company_countries: str = "") -> dict:
     asset (supplier / factory / warehouse / port / component / product) — the
     geography that a disruption can actually reach.
     """
+    from app.core.geography import canonical
+
     by_type: dict[str, list[str]] = {}
     op_countries: set[str] = set()
     asset_countries: set[str] = set()
@@ -88,20 +90,21 @@ def build_profile(graph: TwinGraph, company_countries: str = "") -> dict:
         if country and country.lower() != "global":
             op_countries.add(country)
             if n.type.value in _ASSET_TYPES:
-                asset_countries.add(country)
+                # Store the canonical country so "US"/"USA"/"United States" (and
+                # the twin vs. the declared profile) all reconcile to one form.
+                asset_countries.add(canonical(country))
     company_list = [
         c.strip() for c in (company_countries or "").replace(";", ",").split(",") if c.strip()
     ]
-    company_set = {c.lower() for c in company_list}
+    company_set = {canonical(c) for c in company_list}
     for c in company_list:
         op_countries.add(c)
     # Constrain the disruption-geography signal to the company's CURRENTLY
-    # declared operating countries. This keeps a stale twin — leftover supplier
-    # nodes from a previous profile — from matching news for countries the company
-    # no longer operates in (e.g. China flood news lingering after switching to
-    # Canada). With no declared countries, fall back to the twin's asset countries.
+    # declared operating countries (canonicalised), so a stale twin can't match
+    # news for countries the company no longer operates in. With no declared
+    # countries, fall back to the twin's asset countries.
     if company_set:
-        asset_countries = {c for c in asset_countries if c.lower() in company_set}
+        asset_countries = {c for c in asset_countries if canonical(c) in company_set}
     return {
         "suppliers": by_type.get("supplier", []),
         "components": by_type.get("component", []),
@@ -157,11 +160,13 @@ class RelevanceAgent:
         ]
 
         # --- geo signal: a country that holds a physical asset ---------------
-        # Match by name, demonym ("Canadian") or major city ("Ottawa"), so news
-        # that never spells out the country still registers.
+        # Match by name, demonym ("Canadian"), major city ("Ottawa"), or the
+        # case-sensitive "US" acronym — using the ORIGINAL (mixed-case) text so
+        # "US tariffs" registers while the pronoun "us" does not.
         from app.core.geography import mentions
 
-        geo = [c for c in profile.get("asset_countries", []) if mentions(c, text)]
+        raw = f"{news.title} {news.body}"
+        geo = [c for c in profile.get("asset_countries", []) if mentions(c, raw)]
         # Disruption must be signalled in the TITLE (the primary signal) as a
         # whole word. Scanning the body — or matching substrings — produced false
         # positives like a China story that merely mentions "conflict"/"attack"

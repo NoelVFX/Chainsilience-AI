@@ -37,9 +37,16 @@ class MatchingService:
 
     @staticmethod
     def _score_supplier(event: Event, supplier: Node) -> float:
+        from app.core.geography import canonical
+
         relevance = 0.0
-        # Geographic overlap is the dominant signal.
-        if event.country and supplier.country and event.country == supplier.country:
+        # Geographic overlap is the dominant signal — compared canonically so
+        # "USA" (detected from news) matches a supplier stored as "US".
+        if (
+            event.country
+            and supplier.country
+            and canonical(event.country) == canonical(supplier.country)
+        ):
             relevance += 0.6
         elif event.country and event.country == "Global":
             relevance += 0.2

@@ -58,7 +58,7 @@ def _detect_country(text: str) -> str:
     # the bare country word — news rarely spells the country out.
     from app.core.geography import resolve_country
 
-    return resolve_country(text.lower())
+    return resolve_country(text)
 
 
 class EventExtractionService:

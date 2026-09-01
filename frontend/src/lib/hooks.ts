@@ -195,9 +195,9 @@ export function useDashboard() {
   return useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api.get<DashboardResponse>("/dashboard"),
-    // The backend poller scans the feeds every ~45s; refetch every 15s so new
+    // The backend poller scans the feeds every ~30s; refetch every 10s so new
     // risks/news surface within seconds of being found — a near-real-time feed.
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
@@ -342,7 +342,7 @@ export function useRisks() {
   return useQuery({
     queryKey: ["risks"],
     queryFn: () => api.get<RiskCard[]>("/risks"),
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
     refetchOnWindowFocus: true,
   });
 }
