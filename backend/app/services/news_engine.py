@@ -46,7 +46,14 @@ class RSSNewsSource:
         parsed = feedparser.parse(content)
         source = (parsed.feed.get("title") if parsed.feed else None) or _host(url)
         items: list[dict] = []
-        for entry in parsed.entries[: settings.news_fetch_per_feed]:
+        # Pull more items from the disruption-dense supply-chain feeds so their
+        # events aren't crowded out of the recent window by general-news volume.
+        per_feed = (
+            settings.news_priority_fetch_per_feed
+            if url in settings.news_priority_feeds
+            else settings.news_fetch_per_feed
+        )
+        for entry in parsed.entries[:per_feed]:
             title = (entry.get("title") or "").strip()
             if not title:
                 continue

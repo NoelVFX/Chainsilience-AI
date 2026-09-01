@@ -145,6 +145,16 @@ class Settings(BaseSettings):
         "https://globalnews.ca/money/feed/",
     ]
     news_fetch_per_feed: int = 4
+    # Supply-chain / logistics specialists are almost entirely disruption news,
+    # so pull many more items from them than from broad world/business outlets
+    # (whose volume of non-disruption stories otherwise buries real events).
+    news_priority_feeds: list[str] = [
+        "https://gcaptain.com/feed/",
+        "https://www.freightwaves.com/feed",
+        "https://splash247.com/feed/",
+        "https://www.supplychaindive.com/feeds/news/",
+    ]
+    news_priority_fetch_per_feed: int = 15
     news_http_timeout: float = 8.0
     news_max_age_days: int = 7
 

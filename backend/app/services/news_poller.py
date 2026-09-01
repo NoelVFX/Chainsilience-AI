@@ -78,7 +78,7 @@ def _process_company(company_id: int, countries: str, item_ids: list[int]) -> in
 
 
 async def _cycle() -> None:
-    scraped = await NewsEngine().collect_async(limit=60)
+    scraped = await NewsEngine().collect_async(limit=120)
 
     new_ids = await asyncio.to_thread(_persist_new, scraped)
     if new_ids:
