@@ -176,9 +176,10 @@ class RelevanceAgent:
         title = news.title.lower()
         disruption = [
             d for d in _DISRUPTION
-            # allow a trailing "s" so plurals match too (tariffs, export controls,
-            # sanctions, closures, …) without matching inside larger words.
-            if re.search(r"\b" + re.escape(d) + r"s?\b", title)
+            # Allow plural + common verb inflections so "tariffs", "flooded",
+            # "disrupting" all match — but NOT a bare "-d" (which would let "war"
+            # match "ward").
+            if re.search(r"\b" + re.escape(d) + r"(?:s|es|ed|ing)?\b", title)
         ]
 
         strong = sorted(set(strong))
