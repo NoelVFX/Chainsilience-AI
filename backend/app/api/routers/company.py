@@ -76,6 +76,9 @@ def onboarding(
     background_tasks.add_task(get_company_rag().reindex, company.id)
     # Mirror the twin into the Neo4j knowledge graph (no-op if not configured).
     background_tasks.add_task(_sync_graph_store, company.id)
+    # Generate risks from the recent already-stored news so the dashboard is
+    # populated immediately, instead of waiting for the next fresh article.
+    background_tasks.add_task(_seed_risks_from_recent_news, company.id)
 
     return CompanyResponse.model_validate(company)
 
@@ -111,6 +114,8 @@ def rebuild_company(
     # Re-index RAG and re-create the Neo4j graph (best-effort, off the request).
     background_tasks.add_task(get_company_rag().reindex, company.id)
     background_tasks.add_task(_sync_graph_store, company.id)
+    # Populate risks from the recent stored news for the NEW profile immediately.
+    background_tasks.add_task(_seed_risks_from_recent_news, company.id)
 
     return CompanyResponse.model_validate(company)
 
@@ -247,3 +252,29 @@ def _sync_graph_store(company_id: int) -> None:
 
     with session_scope() as session:
         DigitalTwinService(TwinRepository(session)).sync_to_graph_store(company_id)
+
+
+def _seed_risks_from_recent_news(company_id: int) -> None:
+    """Background task: run the risk pipeline over recent ALREADY-STORED news.
+
+    The poller only processes items as they're first scraped, so news stored
+    before a profile/country change never gets re-evaluated. After onboarding or
+    a rebuild, re-run the (heuristic-gated) pipeline over the recent news window
+    so relevant, matching stories surface as risks right away. De-duped by the
+    pipeline, so it's safe to re-run.
+    """
+    from app.db.session import session_scope
+    from app.repositories import CompanyRepository, NewsRepository
+    from app.services import news_poller
+
+    with session_scope() as session:
+        company = CompanyRepository(session).get(company_id)
+        if company is None:
+            return
+        countries = company.countries or ""
+        item_ids = [n.id for n in NewsRepository(session).latest(80)]
+    if item_ids:
+        try:
+            news_poller._process_company(company_id, countries, item_ids)
+        except Exception:  # noqa: BLE001 — best-effort seeding, never fail onboarding
+            pass
