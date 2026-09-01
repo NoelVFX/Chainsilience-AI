@@ -138,6 +138,11 @@ class Settings(BaseSettings):
         "https://www.freightwaves.com/feed",
         "https://splash247.com/feed/",
         "https://www.supplychaindive.com/feeds/news/",
+        # North America (Canada / US business + trade) — so companies operating
+        # outside the Asia-heavy sources above still get relevant regional news.
+        "https://www.cbc.ca/webfeed/rss/rss-business",
+        "https://financialpost.com/feed",
+        "https://globalnews.ca/money/feed/",
     ]
     news_fetch_per_feed: int = 4
     news_http_timeout: float = 8.0
