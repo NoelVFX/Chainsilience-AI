@@ -86,14 +86,14 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
   // Real equirectangular earth texture (bundled). Loaded imperatively so a slow
   // or missing image degrades to a plain dark sphere instead of throwing.
   const earthTex = useMemo(() => {
-    const t = new THREE.TextureLoader().load("/textures/earth-dark.jpg");
+    const t = new THREE.TextureLoader().load("/textures/earth-blue-marble.jpg");
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     return t;
   }, []);
-  // Tint the emissive land toward the app's cool blue so continents read even on
-  // the night side without looking like a photographic globe.
-  const landEmissive = useMemo(() => new THREE.Color("#6f9bf2"), []);
+  // Soft cool emissive so the continents stay visible on the night side as the
+  // globe rotates (without washing out the daytime colours).
+  const landEmissive = useMemo(() => new THREE.Color("#9fb3cc"), []);
 
   // Drag-to-rotate for the foreground (dashboard) globe: press and drag to spin
   // (horizontal) and tilt (vertical). Rotation is applied directly on the group
@@ -186,8 +186,8 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
           map={earthTex}
           emissiveMap={earthTex}
           emissive={landEmissive}
-          emissiveIntensity={backdrop ? 1.0 : 1.35}
-          roughness={1}
+          emissiveIntensity={backdrop ? 0.32 : 0.42}
+          roughness={0.9}
           metalness={0}
         />
       </mesh>
