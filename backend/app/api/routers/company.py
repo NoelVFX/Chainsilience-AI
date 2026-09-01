@@ -348,7 +348,9 @@ def _seed_risks_from_recent_news(company_id: int, force: bool = False) -> None:
         if company is None:
             return
         countries = company.countries or ""
-        item_ids = [n.id for n in NewsRepository(session).latest(80)]
+        # Scan a wide window so supply-chain disruption stories aren't pushed out
+        # by the higher volume of general world/business news at the top.
+        item_ids = [n.id for n in NewsRepository(session).latest(200)]
     if item_ids:
         try:
             news_poller._process_company(company_id, countries, item_ids)
