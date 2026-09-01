@@ -27,7 +27,7 @@ const R = 1;
 /** A single disruption marker: a glowing node, a pulsing halo, and a spike. */
 function Marker({ point }: { point: GlobePoint }) {
   const haloRef = useRef<THREE.Mesh>(null);
-  const color = SEVERITY_COLOR[point.severity] ?? "#22d3ee";
+  const color = SEVERITY_COLOR[point.severity] ?? "#5b8def";
   const pos = useMemo(() => latLonToVector3(point.lat, point.lon, R + 0.01), [point]);
   const spikeLen = 0.12 + (point.score / 100) * 0.28;
 
@@ -82,6 +82,18 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
   const last = useRef({ x: 0, y: 0 });
   // Leftover angular velocity (rad/frame) for a little spin-down after release.
   const velocity = useRef({ x: 0, y: 0 });
+
+  // Real equirectangular earth texture (bundled). Loaded imperatively so a slow
+  // or missing image degrades to a plain dark sphere instead of throwing.
+  const earthTex = useMemo(() => {
+    const t = new THREE.TextureLoader().load("/textures/earth-dark.jpg");
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    return t;
+  }, []);
+  // Tint the emissive land toward the app's cool blue so continents read even on
+  // the night side without looking like a photographic globe.
+  const landEmissive = useMemo(() => new THREE.Color("#6f9bf2"), []);
 
   // Drag-to-rotate for the foreground (dashboard) globe: press and drag to spin
   // (horizontal) and tilt (vertical). Rotation is applied directly on the group
@@ -166,37 +178,25 @@ function Earth({ points, backdrop, reducedMotion }: GlobeProps) {
     // no solid core, so it blends with the page background instead of reading as
     // a clipped dark disc. The dashboard globe keeps a solid, lit earth.
     <group ref={groupRef} scale={1}>
-      {/* solid, lit core — only for the foreground (dashboard) globe */}
-      {!backdrop && (
-        <mesh>
-          <sphereGeometry args={[R, 48, 48]} />
-          <meshStandardMaterial
-            color="#0b1a2e"
-            emissive="#06131f"
-            emissiveIntensity={0.6}
-            roughness={0.9}
-            metalness={0.1}
-          />
-        </mesh>
-      )}
-      {/* faint occluder for the backdrop so back-side lines don't show through */}
-      {backdrop && (
-        <mesh>
-          <sphereGeometry args={[R * 0.99, 32, 32]} />
-          <meshBasicMaterial color="#0a1420" transparent opacity={0.35} />
-        </mesh>
-      )}
-      {/* wireframe shell */}
-      <mesh scale={1.003}>
-        <icosahedronGeometry args={[R, 6]} />
-        <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={backdrop ? 0.22 : 0.12} />
+      {/* Textured earth — real continents, tinted to the app's cool palette. The
+          emissiveMap keeps land legible on the dark (night) side as it rotates. */}
+      <mesh>
+        <sphereGeometry args={[R, 64, 64]} />
+        <meshStandardMaterial
+          map={earthTex}
+          emissiveMap={earthTex}
+          emissive={landEmissive}
+          emissiveIntensity={backdrop ? 1.0 : 1.35}
+          roughness={1}
+          metalness={0}
+        />
       </mesh>
-      {/* latitude/longitude rings for a techy graticule */}
+      {/* faint latitude/longitude graticule for the "map" feel */}
       <Graticule backdrop={backdrop} />
       {/* atmosphere rim glow */}
       <mesh scale={1.16}>
         <sphereGeometry args={[R, 32, 32]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={backdrop ? 0.08 : 0.05} side={THREE.BackSide} />
+        <meshBasicMaterial color="#5b8def" transparent opacity={backdrop ? 0.09 : 0.07} side={THREE.BackSide} />
       </mesh>
       {!backdrop && points.map((p, i) => <Marker key={`${p.country}-${i}`} point={p} />)}
     </group>
@@ -226,9 +226,9 @@ function Graticule({ backdrop = false }: { backdrop?: boolean }) {
         <Line
           key={i}
           points={pts}
-          color={backdrop ? "#22d3ee" : "#3b82f6"}
+          color="#5b8def"
           transparent
-          opacity={backdrop ? 0.25 : 0.14}
+          opacity={backdrop ? 0.1 : 0.06}
           lineWidth={1}
         />
       ))}
