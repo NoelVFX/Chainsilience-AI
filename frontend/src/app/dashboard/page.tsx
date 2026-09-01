@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { DisruptionMap } from "@/components/DisruptionMap";
@@ -14,7 +14,7 @@ import { useDashboard, useIngestNews } from "@/lib/hooks";
 /** Screen 3 — Dashboard: KPI row, Top Risks, disruption map, news, actions. */
 export default function DashboardPage() {
   const router = useRouter();
-  const { data, isLoading, isError, error, refetch, isFetching } = useDashboard();
+  const { data, isLoading, isError, error, refetch, isFetching, dataUpdatedAt } = useDashboard();
   const ingest = useIngestNews();
   const [editOpen, setEditOpen] = useState(false);
 
@@ -26,6 +26,7 @@ export default function DashboardPage() {
           <p className="mt-0.5 text-[13px] text-muted">
             Real-time view of global disruptions affecting your supply chain
           </p>
+          <LiveStatus updatedAt={dataUpdatedAt} fetching={isFetching} />
         </div>
         <div className="flex items-center gap-2.5">
           <button
@@ -193,6 +194,35 @@ export default function DashboardPage() {
         </>
       )}
     </AppShell>
+  );
+}
+
+/** "Live · updated Xs ago" — shows the feed is actively scanning and how fresh
+    the data is. The dot pulses while a refetch is in flight. */
+function LiveStatus({ updatedAt, fetching }: { updatedAt: number; fetching: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const secs = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : 0;
+  const ago = secs < 60 ? `${secs}s ago` : `${Math.round(secs / 60)}m ago`;
+  return (
+    <div className="mt-2 flex items-center gap-2 text-[11.5px] text-muted">
+      <span
+        className={fetching ? "animate-pulse" : ""}
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: "50%",
+          background: "#4bb384",
+          boxShadow: "0 0 7px rgba(75,179,132,0.9)",
+        }}
+      />
+      <span className="num">Live</span>
+      <span>·</span>
+      <span>{updatedAt ? `updated ${ago}` : "connecting…"}</span>
+    </div>
   );
 }
 

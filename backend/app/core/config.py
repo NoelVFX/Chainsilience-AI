@@ -149,7 +149,7 @@ class Settings(BaseSettings):
     # runs the risk pipeline for newly-relevant items per company. Disable the
     # whole loop, or just the LLM risk-generation, to control cost.
     news_poll_enabled: bool = True
-    news_poll_seconds: int = 60
+    news_poll_seconds: int = 45
     news_poll_generate_risks: bool = True
     news_poll_max_new_risks: int = 8  # per company per cycle (bounds LLM calls)
 
