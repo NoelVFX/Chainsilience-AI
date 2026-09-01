@@ -157,7 +157,11 @@ class RelevanceAgent:
         ]
 
         # --- geo signal: a country that holds a physical asset ---------------
-        geo = hits(profile.get("asset_countries", []))
+        # Match by name, demonym ("Canadian") or major city ("Ottawa"), so news
+        # that never spells out the country still registers.
+        from app.core.geography import mentions
+
+        geo = [c for c in profile.get("asset_countries", []) if mentions(c, text)]
         # Disruption must be signalled in the TITLE (the primary signal) as a
         # whole word. Scanning the body — or matching substrings — produced false
         # positives like a China story that merely mentions "conflict"/"attack"

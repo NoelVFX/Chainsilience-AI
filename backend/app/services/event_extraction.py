@@ -54,11 +54,11 @@ def _classify(text: str) -> tuple[str, Severity]:
 
 
 def _detect_country(text: str) -> str:
-    lowered = text.lower()
-    for c in _COUNTRIES:
-        if _matches(c.lower(), lowered):
-            return "USA" if c in ("United States",) else "UK" if c == "United Kingdom" else c
-    return ""
+    # Resolve by name, demonym ("Canadian") or major city ("Ottawa"), not just
+    # the bare country word — news rarely spells the country out.
+    from app.core.geography import resolve_country
+
+    return resolve_country(text.lower())
 
 
 class EventExtractionService:
