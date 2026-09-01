@@ -195,6 +195,69 @@ async def upload_twin_csv(
             "data_quality_score": company.data_quality_score}
 
 
+@router.get("/risk-diagnostics")
+def risk_diagnostics(
+    company_id: int = Depends(get_current_company_id),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Read-only trace of why recent news is / isn't becoming risks.
+
+    Runs the SAME pipeline gates (verifier → relevance → match) over the recent
+    stored-news window and reports where each item stops — so a live, empty
+    dashboard can be diagnosed exactly (which gate, with reasons), using the
+    same AI provider as production. Creates nothing.
+    """
+    from app.repositories import NewsRepository
+    from app.services.agents.relevance import RelevanceAgent, build_profile
+    from app.services.agents.verifier import VerifierAgent
+    from app.services.ai.adapter import ai_client
+    from app.services.event_extraction import EventExtractionService
+    from app.services.matching import MatchingService
+
+    company = CompanyRepository(session).get(company_id)
+    twin_repo = TwinRepository(session)
+    graph = DigitalTwinService(twin_repo).build_graph(company_id)
+    profile = build_profile(graph, (company.countries if company else "") or "")
+
+    ver, rel, ex, m = (
+        VerifierAgent(), RelevanceAgent(), EventExtractionService(), MatchingService(),
+    )
+    news = NewsRepository(session).latest(40)
+    breakdown = {"verifier": 0, "relevance": 0, "match": 0, "would_risk": 0}
+    samples: list[dict] = []
+    for n in news:
+        v = ver.verify(n)
+        if not v.reliable:
+            stage, reason = "verifier", v.reason
+        else:
+            r = rel.assess(n, profile)
+            if not r.relevant:
+                stage, reason = "relevance", r.reason
+            else:
+                ev = ex.extract(n)
+                mt = m.match(ev, graph)
+                if mt is None:
+                    stage, reason = "match", f"no supplier for country={ev.country!r}"
+                else:
+                    stage, reason = "would_risk", f"matches {mt.supplier.name}"
+        breakdown[stage] += 1
+        if len(samples) < 15:
+            samples.append({"title": n.title[:90], "stage": stage, "reason": str(reason)[:140]})
+
+    return {
+        "company": company.name if company else None,
+        "countries": company.countries if company else None,
+        "asset_countries": profile.get("asset_countries", []),
+        "twin_nodes": len(graph.nodes),
+        "ai_provider": ai_client.provider,
+        "ai_live": ai_client.live,
+        "news_window": len(news),
+        "existing_risks": len(RiskRepository(session).for_company(company_id)),
+        "breakdown": breakdown,
+        "samples": samples,
+    }
+
+
 @router.get("/twin/graph")
 def twin_graph(
     company_id: int = Depends(get_current_company_id),
