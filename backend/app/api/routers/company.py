@@ -78,7 +78,7 @@ def onboarding(
     background_tasks.add_task(_sync_graph_store, company.id)
     # Generate risks from the recent already-stored news so the dashboard is
     # populated immediately, instead of waiting for the next fresh article.
-    background_tasks.add_task(_seed_risks_from_recent_news, company.id)
+    background_tasks.add_task(_seed_risks_from_recent_news, company.id, force=True)
 
     return CompanyResponse.model_validate(company)
 
@@ -115,7 +115,7 @@ def rebuild_company(
     background_tasks.add_task(get_company_rag().reindex, company.id)
     background_tasks.add_task(_sync_graph_store, company.id)
     # Populate risks from the recent stored news for the NEW profile immediately.
-    background_tasks.add_task(_seed_risks_from_recent_news, company.id)
+    background_tasks.add_task(_seed_risks_from_recent_news, company.id, force=True)
 
     return CompanyResponse.model_validate(company)
 
@@ -254,18 +254,31 @@ def _sync_graph_store(company_id: int) -> None:
         DigitalTwinService(TwinRepository(session)).sync_to_graph_store(company_id)
 
 
-def _seed_risks_from_recent_news(company_id: int) -> None:
+# Debounce map so the dashboard (which polls every ~10s) can safely trigger
+# seeding without re-running the pipeline over the window every few seconds.
+_last_seed: dict[int, float] = {}
+
+
+def _seed_risks_from_recent_news(company_id: int, force: bool = False) -> None:
     """Background task: run the risk pipeline over recent ALREADY-STORED news.
 
     The poller only processes items as they're first scraped, so news stored
-    before a profile/country change never gets re-evaluated. After onboarding or
-    a rebuild, re-run the (heuristic-gated) pipeline over the recent news window
-    so relevant, matching stories surface as risks right away. De-duped by the
-    pipeline, so it's safe to re-run.
+    before a profile/country change never gets re-evaluated. Re-run the
+    (heuristic-gated, de-duped) pipeline over the recent news window so relevant,
+    matching stories surface as risks right away. ``force`` bypasses the debounce
+    (used after onboarding/rebuild); otherwise it runs at most once per 90s per
+    company (used by the auto-trigger on an empty dashboard).
     """
+    import time
+
     from app.db.session import session_scope
     from app.repositories import CompanyRepository, NewsRepository
     from app.services import news_poller
+
+    now = time.monotonic()
+    if not force and now - _last_seed.get(company_id, 0.0) < 90.0:
+        return
+    _last_seed[company_id] = now
 
     with session_scope() as session:
         company = CompanyRepository(session).get(company_id)
@@ -276,5 +289,5 @@ def _seed_risks_from_recent_news(company_id: int) -> None:
     if item_ids:
         try:
             news_poller._process_company(company_id, countries, item_ids)
-        except Exception:  # noqa: BLE001 — best-effort seeding, never fail onboarding
+        except Exception:  # noqa: BLE001 — best-effort seeding, never fail the request
             pass
