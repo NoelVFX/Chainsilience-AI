@@ -69,6 +69,8 @@ export interface RiskDetail {
   factors: Factor[];
   impact: ImpactTile[];
   chain: string[];
+  source?: string;
+  source_url?: string;
 }
 
 export interface ScenarioTile {

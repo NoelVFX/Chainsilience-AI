@@ -139,7 +139,7 @@ class IntelligencePipeline:
             severity=severity,
             score=score,
             confidence=confidence,
-            reasoning=self._reasoning(event, match, result, coverage),
+            reasoning=self._reasoning(event, match, coverage, score, severity),
             revenue_at_risk=revenue,
             factors=factors,
             impact=impact_tiles,
@@ -212,7 +212,9 @@ class IntelligencePipeline:
         return f"{place} {etype} — {match.supplier.name}"
 
     @staticmethod
-    def _reasoning(event, match, result, coverage) -> str:
+    def _reasoning(event, match, coverage, score, severity) -> str:
+        # Uses the FINAL score/severity (after the AI assessment) so the narrative
+        # always agrees with the number shown on the risk card.
         dep = int(float(match.supplier.attributes.get("dependency_share", 0.4)) * 100)
         alt = int(match.supplier.attributes.get("alt_suppliers", 1))
         return (
@@ -220,7 +222,7 @@ class IntelligencePipeline:
             f"threatens {match.supplier.name}, which accounts for {dep}% of dependent "
             f"volume with {alt} qualified alternate(s) on file. Current safety stock "
             f"covers roughly {coverage} days of production, producing a "
-            f"{severity_label(result.severity).lower()} composite risk score of {result.score}."
+            f"{severity_label(severity).lower()} composite risk score of {score}."
         )
 
     def _build_chain(self, event, match, graph) -> list[str]:

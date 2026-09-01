@@ -90,6 +90,9 @@ class RiskDetailResponse(BaseModel):
     factors: list[Factor]
     impact: list[ImpactTile]
     chain: list[str]
+    # The news article this risk was derived from (for a "verify at source" link).
+    source: str = ""
+    source_url: str = ""
 
 
 # --- Scenario simulator ------------------------------------------------------

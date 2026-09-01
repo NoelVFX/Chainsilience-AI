@@ -8,7 +8,7 @@ from app.api.deps import get_current_company_id
 from app.core.constants import severity_color, severity_label
 from app.core.timeutil import relative_time
 from app.db.session import get_session
-from app.models.entities import Action, NodeType, Risk
+from app.models.entities import Action, NewsItem, NodeType, Risk
 from app.repositories import ActionRepository, EmailDraftRepository, EventRepository, RiskRepository, TwinRepository
 from app.schemas.domain import (
     EmailRequest,
@@ -112,6 +112,12 @@ def risk_detail(
         r, supplier_attrs, coverage_hint, event_type=(event.type if event else None)
     ))
 
+    # The originating news article — surfaced as a "verify at source" link, but
+    # only when it points to a real external URL (synthetic seed news has none).
+    news = session.get(NewsItem, event.news_id) if event and event.news_id else None
+    source = news.source if news else ""
+    source_url = (news.url or "").strip() if news else ""
+
     return RiskDetailResponse(
         id=r.id, title=r.headline or r.title, headline=r.headline or r.title,
         severity=severity_label(r.severity).upper(), severity_color=severity_color(r.severity),
@@ -120,6 +126,8 @@ def risk_detail(
         factors=[Factor(**f) for f in r.factors],
         impact=[ImpactTile(**i) for i in impact],
         chain=r.chain,
+        source=source,
+        source_url=source_url,
     )
 
 

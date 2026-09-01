@@ -92,7 +92,20 @@ export default function RiskDetailPage() {
               Risk Score {data.score} · {data.time}
             </span>
           </div>
-          <h1 className="mb-6 mt-2 text-[22px] font-extrabold text-text">{data.headline}</h1>
+          <h1 className="mb-2 mt-2 text-[22px] font-extrabold text-text">{data.headline}</h1>
+          {data.source_url ? (
+            <a
+              href={data.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-6 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-cyan hover:underline"
+            >
+              Verify at source{data.source ? ` — ${data.source}` : ""}
+              <span aria-hidden>↗</span>
+            </a>
+          ) : (
+            <div className="mb-6" />
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             {/* Left column */}
