@@ -3,25 +3,27 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { GlobeMount } from "@/components/three/GlobeMount";
 import { Logo } from "@/components/Logo";
-import { FadeUp } from "@/components/motion";
+import { OrbitAct } from "@/components/orbit/OrbitAct";
 import { ApiError, getToken } from "@/lib/api";
 import { useBillingStatus, useCreateCheckout } from "@/lib/hooks";
 
 /**
- * Marketing landing page (route "/"). A 3D globe hero over the dark brand
- * gradient, glassmorphism nav + cards, and sections for features, pricing,
- * about, and contact. "Launch Demo" smart-routes into the app.
+ * Marketing landing page (route "/").
  *
- * "Schedule a meeting" opens the Calendly popup when CALENDLY_URL is set;
+ * The page opens with the Orbit act: a blue-marble globe pinned at the centre
+ * of the viewport while the copy around it is exchanged chapter by chapter, and
+ * the earth turns to the region each chapter is about. Everything after the act
+ * (capabilities, pricing, about, contact) scrolls normally.
+ *
+ * "Schedule a walkthrough" opens the Calendly popup when CALENDLY_URL is set;
  * otherwise it falls back to a pre-filled email.
  */
 const CONTACT_EMAIL = "chainsilienceai@gmail.com";
 // Your Calendly scheduling link. Leave empty to fall back to the email scheduler.
 const CALENDLY_URL = "https://calendly.com/chainsilienceai/30min";
 const MEETING_URL = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-  "Meeting request — Chainsilience AI",
+  "Meeting request: Chainsilience AI",
 )}&body=${encodeURIComponent(
   "Hi Chainsilience AI team,\n\nI'd like to schedule a walkthrough.\n\nCompany:\nSupply chain / industry:\nPreferred times:\n",
 )}`;
@@ -64,45 +66,10 @@ function openScheduler() {
 
 const NAV = [
   { label: "Home", id: "home" },
-  { label: "Features", id: "features" },
+  { label: "Capabilities", id: "features" },
   { label: "Pricing", id: "pricing" },
   { label: "About", id: "about" },
   { label: "Contact", id: "contact" },
-];
-
-const GRADIENT = "#5b8def";
-
-const FEATURES = [
-  {
-    icon: "◎",
-    title: "AI Risk Scoring",
-    body: "NVIDIA Nemotron rates every disruption into an explainable composite score — with a transparent breakdown of the factors that drove it.",
-  },
-  {
-    icon: "◈",
-    title: "Live Digital Twin",
-    body: "Model your suppliers, components, factories and routes as a graph, then watch a single event cascade to revenue in real time.",
-  },
-  {
-    icon: "⤳",
-    title: "Monte Carlo Simulation",
-    body: "Production-stoppage probability estimated across thousands of seeded scenarios, differentiated by event type and severity.",
-  },
-  {
-    icon: "⚇",
-    title: "Two-Agent News Intelligence",
-    body: "A verifier agent filters unreliable signals; a relevance agent keeps only what actually touches your supply-chain paths.",
-  },
-  {
-    icon: "⚖",
-    title: "Mitigation Scoring",
-    body: "Strategies ranked by a multi-objective utility of service, net financial impact, risk reduction and implementation cost.",
-  },
-  {
-    icon: "✓",
-    title: "Action Center",
-    body: "Approve a mitigation and track it through to completion — the linked risk's score, revenue and impact update as work lands.",
-  },
 ];
 
 const PLANS = [
@@ -112,7 +79,7 @@ const PLANS = [
     cadence: "/ forever",
     tagline: "For a single team getting started.",
     features: [
-      "1 company Digital Twin",
+      "1 company digital twin",
       "Daily news scan",
       "Core AI risk scoring",
       "Community support",
@@ -126,11 +93,11 @@ const PLANS = [
     cadence: "/ month",
     tagline: "For teams running live risk operations.",
     features: [
-      "Multiple Digital Twins",
+      "Multiple digital twins",
       "Real-time news ingestion",
       "Monte Carlo simulation",
       "Multi-objective mitigation scoring",
-      "Email alerts & Action Center",
+      "Email alerts and Action Center",
       "Priority support",
     ],
     cta: "Start Growth",
@@ -140,12 +107,12 @@ const PLANS = [
     name: "Enterprise",
     price: "Custom",
     cadence: "",
-    tagline: "For organisations with scale & compliance needs.",
+    tagline: "For organisations with scale and compliance needs.",
     features: [
-      "SSO & role-based access",
+      "SSO and role-based access",
       "Dedicated Nemotron throughput",
       "Custom data integrations",
-      "SLA & dedicated support",
+      "SLA and dedicated support",
       "On-prem / VPC deployment",
     ],
     cta: "Talk to us",
@@ -153,10 +120,11 @@ const PLANS = [
   },
 ];
 
+// Numbers that are true of the running system, not marketing rounding.
 const STATS = [
   { value: "16+", label: "Global intelligence sources" },
-  { value: "1,000s", label: "Simulations per risk" },
-  { value: "100%", label: "Explainable AI scoring" },
+  { value: "30s", label: "News poll interval" },
+  { value: "10,000", label: "Scenarios simulated per risk" },
   { value: "24/7", label: "Continuous monitoring" },
 ];
 
@@ -168,7 +136,7 @@ export default function LandingPage() {
   const router = useRouter();
   const launch = () => router.push(getToken() ? "/dashboard" : "/login");
   // Free plan: a signed-in user goes straight in; a guest starts onboarding
-  // (create a free account) — no payment involved.
+  // (create a free account) with no payment involved.
   const startFree = () => router.push(getToken() ? "/dashboard" : "/onboarding");
   useCalendly();
 
@@ -197,24 +165,26 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden text-text">
-      {/* soft brand glows */}
+    // No overflow control on this wrapper. Any non-visible overflow here would
+    // make it the containing block for the fixed navbar and background, so both
+    // would scroll away with the page, and it would clip the pinned stage.
+    // Horizontal overflow is handled once, on <html>, in globals.css.
+    <div className="relative min-h-screen text-text">
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0 -z-10"
         style={{
           background:
             "radial-gradient(1100px 560px at 72% -8%, rgba(91,141,239,0.06), transparent 60%)," +
-            "#0b0e15",
+            "#0a0d14",
         }}
       />
 
       <Navbar onLaunch={launch} />
 
       <main>
-        <Hero onLaunch={launch} />
-        <Features />
-        <HowItWorks />
+        <OrbitAct onLaunch={launch} onSchedule={openScheduler} />
+        <Proof />
         <Pricing
           onStartFree={startFree}
           onSubscribe={subscribe}
@@ -238,13 +208,12 @@ function Navbar({ onLaunch }: { onLaunch: () => void }) {
   return (
     <header className="fixed inset-x-0 top-4 z-50 flex justify-center px-4">
       <nav
-        className="flex w-full max-w-5xl items-center justify-between rounded-full border px-4 py-2.5"
+        className="flex h-[52px] w-full max-w-5xl items-center justify-between rounded-full border px-4"
         style={{
-          background: "rgba(17,24,39,0.55)",
+          background: "rgba(14,19,27,0.62)",
           borderColor: "rgba(148,163,184,0.14)",
           backdropFilter: "blur(16px) saturate(140%)",
           WebkitBackdropFilter: "blur(16px) saturate(140%)",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.45)",
         }}
       >
         <button onClick={() => scrollTo("home")} className="flex items-center">
@@ -265,10 +234,9 @@ function Navbar({ onLaunch }: { onLaunch: () => void }) {
 
         <button
           onClick={onLaunch}
-          className="rounded-full px-4 py-2 text-[13px] font-bold text-white transition-transform hover:-translate-y-0.5"
-          style={{ background: GRADIENT, boxShadow: "0 6px 16px rgba(0,0,0,0.32)" }}
+          className="btn-primary rounded-full px-4 py-2 text-[13px]"
         >
-          Launch Demo
+          Launch demo
         </button>
       </nav>
     </header>
@@ -277,82 +245,17 @@ function Navbar({ onLaunch }: { onLaunch: () => void }) {
 
 /* --------------------------------------------------------------------------- */
 
-function Hero({ onLaunch }: { onLaunch: () => void }) {
+/** The first thing after the act releases: four numbers the system can back. */
+function Proof() {
   return (
-    <section
-      id="home"
-      className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-6 text-center"
-    >
-      {/* 3D globe centerpiece (decorative backdrop mode: auto-spins, translucent) */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 -translate-x-1/2 -translate-y-1/2"
-        style={{ width: "min(760px, 92vw)", height: "min(760px, 92vw)", opacity: 0.55 }}
-      >
-        <GlobeMount points={[]} backdrop fallback={null} />
-      </div>
-
-      <FadeUp>
-        <span
-          className="mb-6 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold text-cyan"
-          style={{ borderColor: "rgba(91, 141, 239,0.3)", background: "rgba(91, 141, 239,0.06)" }}
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-cyan" style={{ boxShadow: "0 0 8px #5b8def" }} />
-          Powered by NVIDIA Nemotron
-        </span>
-      </FadeUp>
-
-      <FadeUp delay={0.05}>
-        <h1
-          className="mx-auto max-w-3xl text-[clamp(2.6rem,7vw,5rem)] font-extrabold leading-[1.02] tracking-tight text-text"
-          style={{ letterSpacing: "-0.03em" }}
-        >
-          See supply-chain risk before it reaches your revenue.
-        </h1>
-      </FadeUp>
-
-      <FadeUp delay={0.1}>
-        <p className="mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-muted md:text-[17px]">
-          Chainsilience AI turns global disruption signals into scored, explainable risks on a live
-          digital twin of your supply chain — then ranks the mitigations that protect service,
-          revenue and time.
-        </p>
-      </FadeUp>
-
-      <FadeUp delay={0.15}>
-        <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <button
-            onClick={onLaunch}
-            className="rounded-full px-7 py-3.5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
-            style={{ background: GRADIENT, boxShadow: "0 8px 20px rgba(0,0,0,0.36)" }}
-          >
-            Launch Demo →
-          </button>
-          <button
-            type="button"
-            onClick={openScheduler}
-            className="rounded-full border px-7 py-3.5 text-sm font-semibold text-text transition-colors"
-            style={{ borderColor: "rgba(148,163,184,0.25)", background: "rgba(148,163,184,0.06)" }}
-          >
-            Schedule a meeting
-          </button>
-        </div>
-      </FadeUp>
-
-      {/* stat strip */}
-      <div className="mt-16 grid w-full max-w-3xl grid-cols-2 gap-4 md:grid-cols-4">
-        {STATS.map((s, i) => (
-          <div
-            key={s.label}
-            className="tilt-card reveal rounded-panel border px-4 py-4 text-center"
-            style={{
-              borderColor: "rgba(148,163,184,0.12)",
-              background: "rgba(20,25,34,0.55)",
-              animationDelay: `${i * 0.06}s`,
-            }}
-          >
-            <div className="num text-2xl font-semibold text-text">{s.value}</div>
-            <div className="mt-1 text-[11.5px] text-muted">{s.label}</div>
+    <section className="mx-auto max-w-5xl px-6 pb-8 pt-24">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-9 md:grid-cols-4">
+        {STATS.map((s) => (
+          <div key={s.label}>
+            <div className="num text-[30px] font-medium leading-none tracking-tight text-text">
+              {s.value}
+            </div>
+            <div className="mt-2.5 text-[12.5px] leading-snug text-muted">{s.label}</div>
           </div>
         ))}
       </div>
@@ -362,75 +265,16 @@ function Hero({ onLaunch }: { onLaunch: () => void }) {
 
 /* --------------------------------------------------------------------------- */
 
-function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
+function SectionHeading({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="mx-auto mb-12 max-w-2xl text-center">
-      <div className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-cyan">{eyebrow}</div>
-      <h2 className="text-[clamp(1.8rem,4vw,2.6rem)] font-extrabold tracking-tight text-text">{title}</h2>
-      {sub && <p className="mx-auto mt-3 max-w-xl text-[14.5px] leading-relaxed text-muted">{sub}</p>}
+    <div className="mb-14 max-w-2xl">
+      <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
+        {title}
+      </h2>
+      {sub && <p className="mt-4 max-w-xl text-[14.5px] leading-relaxed text-muted">{sub}</p>}
     </div>
   );
 }
-
-function Features() {
-  return (
-    <section id="features" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
-      <SectionHeading
-        eyebrow="Features"
-        title="An intelligence layer for your supply chain"
-        sub="Every module works together — from raw global signals to the specific action that reduces your risk."
-      />
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((f, i) => (
-          <div
-            key={f.title}
-            className="tilt-card reveal h-full rounded-panel border p-6"
-            style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(17,24,39,0.5)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", animationDelay: `${i * 0.06}s` }}
-          >
-            <div
-              className="mb-4 flex h-11 w-11 items-center justify-center rounded-card text-xl font-bold text-white"
-              style={{ background: GRADIENT }}
-            >
-              {f.icon}
-            </div>
-            <h3 className="mb-2 text-[16px] font-bold text-text">{f.title}</h3>
-            <p className="text-[13.5px] leading-relaxed text-muted">{f.body}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* --------------------------------------------------------------------------- */
-
-function HowItWorks() {
-  const steps = [
-    { n: "01", t: "Model your twin", d: "Onboard your suppliers, components, factories and routes — or upload a CSV — to build a live graph of your chain." },
-    { n: "02", t: "Ingest & score", d: "We continuously scan global sources, verify and match signals to your paths, and score the resulting risks." },
-    { n: "03", t: "Simulate & act", d: "Run Monte Carlo stoppage estimates, rank mitigations by objective, then approve and track them in the Action Center." },
-  ];
-  return (
-    <section className="mx-auto max-w-6xl px-6 py-16">
-      <SectionHeading eyebrow="How it works" title="From signal to action in three steps" />
-      <div className="grid gap-5 md:grid-cols-3">
-        {steps.map((s, i) => (
-          <div
-            key={s.n}
-            className="tilt-card reveal rounded-panel border p-6"
-            style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(13,20,32,0.5)", animationDelay: `${i * 0.06}s` }}
-          >
-            <div className="mb-3 text-3xl font-extrabold" style={{ color: "rgba(91, 141, 239,0.35)" }}>{s.n}</div>
-            <h3 className="mb-2 text-[16px] font-bold text-text">{s.t}</h3>
-            <p className="text-[13.5px] leading-relaxed text-muted">{s.d}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* --------------------------------------------------------------------------- */
 
 function Pricing({
   onStartFree,
@@ -447,8 +291,8 @@ function Pricing({
   currentPlan: string | null;
   checkingPlan: boolean;
 }) {
-  // Route each plan's CTA: Starter → free onboarding (no payment), Growth →
-  // Stripe checkout, Enterprise → contact.
+  // Route each plan's CTA: Starter to free onboarding (no payment), Growth to
+  // Stripe checkout, Enterprise to contact.
   const handler = (name: string) =>
     name === "Growth"
       ? () => onSubscribe("growth")
@@ -461,23 +305,22 @@ function Pricing({
   };
 
   return (
-    <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
+    <section id="pricing" className="mx-auto max-w-5xl scroll-mt-28 px-6 py-24">
       <SectionHeading
-        eyebrow="Pricing"
         title="Start free, scale when you're ready"
         sub="Transparent tiers that grow with the size and criticality of your supply chain."
       />
       {error && (
         <div
-          className="mx-auto mb-6 max-w-md rounded-control border px-4 py-2.5 text-center text-[12.5px] font-semibold"
-          style={{ background: "rgba(248,113,113,0.1)", borderColor: "rgba(248,113,113,0.35)", color: "#f87171" }}
+          className="mb-6 max-w-md rounded-control border px-4 py-2.5 text-[12.5px] font-medium"
+          style={{ background: "rgba(224,87,91,0.1)", borderColor: "rgba(224,87,91,0.35)", color: "#e0575b" }}
         >
           {error}
         </div>
       )}
       {currentPlan && (
-        <div className="mx-auto mb-6 max-w-md rounded-control border border-cyan/30 bg-cyan/[0.06] px-4 py-2.5 text-center text-[12.5px] text-muted">
-          Current plan: <span className="font-bold capitalize text-cyan">{currentPlan}</span>
+        <div className="mb-6 max-w-md rounded-control border border-accent/25 bg-accent/[0.06] px-4 py-2.5 text-[12.5px] text-muted">
+          Current plan: <span className="font-semibold capitalize text-accent">{currentPlan}</span>
         </div>
       )}
       <div className="grid items-stretch gap-5 md:grid-cols-3">
@@ -485,55 +328,57 @@ function Pricing({
           const current = isCurrentPlan(p.name);
           return (
             <div
-            key={p.name}
-            className="relative flex flex-col rounded-panel border p-7"
-            style={{
-              borderColor: p.highlight ? "rgba(91, 141, 239,0.4)" : "rgba(148,163,184,0.14)",
-              background: p.highlight ? "rgba(91, 141, 239,0.06)" : "rgba(17,24,39,0.5)",
-              boxShadow: p.highlight ? "0 20px 60px rgba(91, 141, 239,0.12)" : "none",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-            }}
-          >
-            {p.highlight && (
-              <span
-                className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[11px] font-bold text-white"
-                style={{ background: GRADIENT }}
-              >
-                Most popular
-              </span>
-            )}
-            {current && (
-              <span className="absolute right-4 top-4 rounded-full border border-cyan/30 bg-cyan/[0.08] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan">
-                Current plan
-              </span>
-            )}
-            <div className="text-[15px] font-bold text-text">{p.name}</div>
-            <div className="mt-3 flex items-end gap-1">
-              <span className="text-4xl font-extrabold text-text">{p.price}</span>
-              {p.cadence && <span className="mb-1 text-[13px] text-muted">{p.cadence}</span>}
-            </div>
-            <p className="mt-2 text-[13px] text-muted">{p.tagline}</p>
-            <ul className="mt-5 flex flex-1 flex-col gap-2.5">
-              {p.features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-[13.5px] text-text">
-                  <span className="mt-0.5 text-cyan">✓</span>
-                  <span className="text-muted">{f}</span>
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={handler(p.name)}
-              disabled={current || checkingPlan || (p.name === "Growth" && subscribing)}
-              className="mt-7 rounded-control py-3 text-sm font-bold transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
-              style={
-                p.highlight
-                  ? { background: GRADIENT, color: "#fff", boxShadow: "0 6px 16px rgba(0,0,0,0.32)" }
-                  : { background: "rgba(148,163,184,0.08)", color: "#e7ecf5", border: "1px solid rgba(148,163,184,0.25)" }
-              }
+              key={p.name}
+              className="relative flex flex-col rounded-panel border p-7"
+              style={{
+                borderColor: p.highlight ? "rgba(91,141,239,0.35)" : "rgba(148,163,184,0.12)",
+                background: p.highlight ? "rgba(91,141,239,0.05)" : "rgba(19,24,34,0.6)",
+              }}
             >
-              {current ? "Current plan" : p.name === "Growth" && subscribing ? "Starting checkout…" : p.cta}
-            </button>
+              {p.highlight && (
+                <span
+                  className="absolute -top-2.5 left-7 rounded-full px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-white"
+                  style={{ background: "#5b8def" }}
+                >
+                  Most popular
+                </span>
+              )}
+              {current && (
+                <span className="absolute right-5 top-5 rounded-full border border-accent/30 bg-accent/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                  Current
+                </span>
+              )}
+              <div className="text-[14px] font-semibold text-text">{p.name}</div>
+              <div className="mt-3 flex items-end gap-1.5">
+                <span className="num text-[34px] font-medium leading-none tracking-tight text-text">
+                  {p.price}
+                </span>
+                {p.cadence && <span className="text-[13px] text-muted">{p.cadence}</span>}
+              </div>
+              <p className="mt-3 text-[13px] leading-relaxed text-muted">{p.tagline}</p>
+              <ul className="mt-6 flex flex-1 flex-col gap-2.5">
+                {p.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-[13.5px]">
+                    <span aria-hidden className="mt-[2px] text-[11px] text-accent">
+                      ✓
+                    </span>
+                    <span className="text-muted">{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={handler(p.name)}
+                disabled={current || checkingPlan || (p.name === "Growth" && subscribing)}
+                className={`mt-7 py-3 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  p.highlight ? "btn-primary" : "btn-ghost"
+                }`}
+              >
+                {current
+                  ? "Current plan"
+                  : p.name === "Growth" && subscribing
+                    ? "Starting checkout…"
+                    : p.cta}
+              </button>
             </div>
           );
         })}
@@ -544,42 +389,41 @@ function Pricing({
 
 /* --------------------------------------------------------------------------- */
 
+/**
+ * A single statement column. Deliberately has no second globe: the orbit act
+ * already spends the page's one 3D moment, and mounting a second WebGL context
+ * here competed with it for the render loop.
+ */
 function About() {
   return (
-    <section id="about" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
-      <div className="grid items-center gap-12 md:grid-cols-2">
-        <div>
-          <div className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-cyan">About</div>
-          <h2 className="text-[clamp(1.8rem,4vw,2.6rem)] font-extrabold tracking-tight text-text">
-            Resilience, made computable.
-          </h2>
-          <p className="mt-5 text-[14.5px] leading-relaxed text-muted">
-            Supply chains break in ways spreadsheets can&apos;t anticipate. Chainsilience AI was built
-            to turn the constant noise of global events — earthquakes, port congestion, export
-            controls, strikes — into a clear, ranked picture of what threatens <em>your</em> business,
-            and what to do about it.
-          </p>
-          <p className="mt-4 text-[14.5px] leading-relaxed text-muted">
-            We pair a live digital twin of your network with explainable AI scoring and Monte Carlo
-            simulation, so every recommendation comes with its reasoning — not a black box.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            {["Explainable by design", "Deterministic fallbacks", "Company-scoped & private"].map((t) => (
+    <section id="about" className="scroll-mt-28 px-6 py-28">
+      <div className="mx-auto max-w-2xl">
+        <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
+          Resilience, made computable.
+        </h2>
+        <p className="mt-6 text-[15.5px] leading-[1.8] text-muted">
+          Supply chains break in ways spreadsheets cannot anticipate. Chainsilience AI was built to
+          turn the constant noise of global events (earthquakes, port congestion, export controls,
+          strikes) into a clear, ranked picture of what threatens <em>your</em> business and what to
+          do about it.
+        </p>
+        <p className="mt-5 text-[15.5px] leading-[1.8] text-muted">
+          We pair a live digital twin of your network with explainable AI scoring and Monte Carlo
+          simulation, so every recommendation arrives with its reasoning attached rather than as a
+          black box.
+        </p>
+        <div className="mt-9 flex flex-wrap gap-2.5">
+          {["Explainable by design", "Deterministic fallbacks", "Company-scoped and private"].map(
+            (t) => (
               <span
                 key={t}
-                className="rounded-full border px-3.5 py-1.5 text-[12.5px] font-semibold text-text"
-                style={{ borderColor: "rgba(148,163,184,0.2)", background: "rgba(148,163,184,0.06)" }}
+                className="rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium text-muted"
+                style={{ borderColor: "rgba(148,163,184,0.16)", background: "rgba(148,163,184,0.05)" }}
               >
                 {t}
               </span>
-            ))}
-          </div>
-        </div>
-        <div
-          className="relative aspect-square w-full overflow-hidden rounded-panel border"
-          style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(13,20,32,0.4)" }}
-        >
-          <GlobeMount points={[]} backdrop fallback={null} />
+            ),
+          )}
         </div>
       </div>
     </section>
@@ -592,7 +436,7 @@ function Contact() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
 
   function send() {
-    const subject = encodeURIComponent(`Chainsilience AI enquiry — ${form.name || "Website"}`);
+    const subject = encodeURIComponent(`Chainsilience AI enquiry: ${form.name || "Website"}`);
     const body = encodeURIComponent(
       `Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`,
     );
@@ -600,53 +444,48 @@ function Contact() {
   }
 
   return (
-    <section id="contact" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-24">
-      <div className="grid gap-10 md:grid-cols-2">
-        {/* left: talk to us */}
+    <section id="contact" className="mx-auto max-w-5xl scroll-mt-28 px-6 py-24">
+      <div className="grid gap-12 md:grid-cols-2">
         <div>
-          <div className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-cyan">Contact</div>
-          <h2 className="text-[clamp(1.8rem,4vw,2.6rem)] font-extrabold tracking-tight text-text">
+          <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
             Let&apos;s map your risk together.
           </h2>
-          <p className="mt-4 text-[14.5px] leading-relaxed text-muted">
-            Book a 30-minute walkthrough and we&apos;ll build a sample digital twin for your chain —
-            or drop us a message and we&apos;ll get back within one business day.
+          <p className="mt-4 max-w-md text-[14.5px] leading-[1.75] text-muted">
+            Book a 30-minute walkthrough and we&apos;ll build a sample digital twin for your chain,
+            or send a message and we&apos;ll reply within one business day.
           </p>
 
           <button
             type="button"
             onClick={openScheduler}
-            className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
-            style={{ background: GRADIENT, boxShadow: "0 6px 16px rgba(0,0,0,0.32)" }}
+            className="btn-primary mt-8 px-6 py-3.5"
           >
-            📅 Schedule a meeting
+            Schedule a walkthrough
           </button>
 
           <div className="mt-6 text-[13.5px] text-muted">
             Prefer email?{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-cyan">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="font-medium text-accent">
               {CONTACT_EMAIL}
             </a>
           </div>
         </div>
 
-        {/* right: quick message form (composes a mailto — no backend needed) */}
+        {/* Composes a mailto, so there is no backend dependency on this form. */}
         <div
           className="rounded-panel border p-7"
-          style={{ borderColor: "rgba(148,163,184,0.14)", background: "rgba(17,24,39,0.5)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" }}
+          style={{ borderColor: "rgba(148,163,184,0.12)", background: "rgba(19,24,34,0.6)" }}
         >
           <div className="grid gap-4">
-            <div>
-              <div className="mb-1.5 text-xs font-semibold text-muted">Name</div>
+            <Field label="Name">
               <input
                 className="panel-input"
-                placeholder="Jane Doe"
+                placeholder="Your full name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
-            </div>
-            <div>
-              <div className="mb-1.5 text-xs font-semibold text-muted">Work email</div>
+            </Field>
+            <Field label="Work email">
               <input
                 type="email"
                 className="panel-input"
@@ -654,16 +493,15 @@ function Contact() {
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               />
-            </div>
-            <div>
-              <div className="mb-1.5 text-xs font-semibold text-muted">Message</div>
+            </Field>
+            <Field label="Message">
               <textarea
                 className="panel-input min-h-[110px] resize-y"
-                placeholder="Tell us about your supply chain…"
+                placeholder="Tell us about your supply chain"
                 value={form.message}
                 onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
               />
-            </div>
+            </Field>
             <button onClick={send} className="btn-primary py-3">
               Send message
             </button>
@@ -674,12 +512,21 @@ function Contact() {
   );
 }
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-medium text-muted">{label}</span>
+      {children}
+    </label>
+  );
+}
+
 /* --------------------------------------------------------------------------- */
 
 function Footer({ onLaunch }: { onLaunch: () => void }) {
   return (
-    <footer className="border-t" style={{ borderColor: "rgba(148,163,184,0.12)" }}>
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-10 md:flex-row">
+    <footer className="border-t" style={{ borderColor: "rgba(148,163,184,0.1)" }}>
+      <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-6 px-6 py-10 md:flex-row">
         <Logo size={26} font={15} />
         <div className="flex flex-wrap items-center justify-center gap-5 text-[13px] text-muted">
           {NAV.map((n) => (
@@ -687,8 +534,8 @@ function Footer({ onLaunch }: { onLaunch: () => void }) {
               {n.label}
             </button>
           ))}
-          <button onClick={onLaunch} className="font-semibold text-cyan">
-            Launch Demo
+          <button onClick={onLaunch} className="font-medium text-accent">
+            Launch demo
           </button>
         </div>
       </div>

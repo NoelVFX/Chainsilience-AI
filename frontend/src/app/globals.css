@@ -7,6 +7,11 @@
  * ------------------------------------------------------------------ */
 :root {
   color-scheme: dark;
+  /* Stronger than the built-in easings, which are too weak to read as
+     intentional. Entering/exiting UI uses --ease-out; on-screen movement
+     uses --ease-move. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 html,
@@ -16,14 +21,30 @@ body {
   min-height: 100%;
 }
 
+/* Horizontal overflow is contained once, here. It must not be set on any
+   wrapper further down: a non-visible overflow makes that element the
+   containing block for position:fixed children and clips position:sticky
+   ones, which is how a pinned scroll stage silently disappears. `clip` on
+   the root propagates to the viewport, so nothing becomes a scroll container. */
+html {
+  overflow-x: clip;
+}
+
 body {
   /* Static slate ground with a single faint accent vignette — no hue-shift. */
   background:
     radial-gradient(120% 80% at 50% -8%, rgba(91, 141, 239, 0.05), transparent 60%),
     #0b0e15;
   color: #e7eaf1;
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* One visible focus treatment for the whole product. */
+:focus-visible {
+  outline: 2px solid rgba(91, 141, 239, 0.75);
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 a {
@@ -85,52 +106,59 @@ a:hover {
     border-color: rgba(91, 141, 239, 0.55);
     box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.12);
   }
+  /* Pressable surfaces acknowledge the press. The scale is what makes the UI
+     feel like it heard you; a 1px nudge reads as a rendering glitch. */
   .btn-primary {
-    @apply text-center font-semibold text-sm rounded-control cursor-pointer
-           transition-colors duration-150;
+    @apply text-center font-semibold text-sm rounded-control cursor-pointer;
     background: #5b8def;
     color: #ffffff;
-  }
-  .btn-primary:hover {
-    background: #6f9bf2;
+    transition: background 150ms ease, transform 140ms var(--ease-out);
   }
   .btn-primary:active {
-    transform: translateY(1px);
+    transform: scale(0.97);
   }
   .btn-ghost {
     @apply text-center font-semibold text-sm rounded-control cursor-pointer
-           border border-line-strong text-text transition-colors duration-150;
+           border border-line-strong text-text;
     background: rgba(148, 163, 184, 0.08);
+    transition: background 150ms ease, border-color 150ms ease,
+      transform 140ms var(--ease-out);
   }
-  .btn-ghost:hover {
-    border-color: rgba(148, 163, 184, 0.32);
-    background: rgba(148, 163, 184, 0.12);
+  .btn-ghost:active {
+    transform: scale(0.97);
   }
   /* Mono, tabular numerals for metrics / scores / timestamps. */
   .num {
-    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-family: var(--font-mono), ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
   }
 }
 
-/* Hover: lift + accent glow (steel-blue, restrained — not the old cyan neon). */
-.tilt-card {
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-.tilt-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(91, 141, 239, 0.45);
-  box-shadow: 0 10px 30px rgba(91, 141, 239, 0.16), 0 0 22px rgba(91, 141, 239, 0.30);
-}
+/* Hover states are gated on a real pointer. On touch, :hover fires on tap and
+   leaves elements stuck in their hovered state. */
+.tilt-card,
 .tilt-card-sm {
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out),
+    border-color 0.18s ease;
 }
-.tilt-card-sm:hover {
-  transform: translateY(-3px);
-  border-color: rgba(91, 141, 239, 0.45);
-  box-shadow: 0 10px 30px rgba(91, 141, 239, 0.16), 0 0 22px rgba(91, 141, 239, 0.30);
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover {
+    background: #6f9bf2;
+  }
+  .btn-ghost:hover {
+    border-color: rgba(148, 163, 184, 0.32);
+    background: rgba(148, 163, 184, 0.12);
+  }
+  .tilt-card:hover,
+  .tilt-card-sm:hover {
+    transform: translateY(-3px);
+    border-color: rgba(91, 141, 239, 0.45);
+    box-shadow: 0 10px 30px rgba(91, 141, 239, 0.16), 0 0 22px rgba(91, 141, 239, 0.3);
+  }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .tilt-card:hover,
   .tilt-card-sm:hover {

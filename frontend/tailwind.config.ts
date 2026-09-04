@@ -19,8 +19,11 @@ const config: Config = {
         "line-strong": "rgba(148,163,184,0.20)",
         text: "#e7eaf1",
         muted: "#8b94a6",
-        // `cyan`/`blue` are kept as token names but repurposed to the single
-        // steel-blue accent so every accent utility follows the new direction.
+        // The single steel-blue accent. `accent` is the name to use; `cyan` and
+        // `blue` remain as deprecated aliases so existing screens keep working
+        // until they are migrated over.
+        accent: "#5b8def",
+        "accent-hover": "#7ba3f4",
         cyan: "#5b8def",
         blue: "#5b8def",
         // Severity — considered, desaturated (these are the only loud colors).
@@ -29,8 +32,10 @@ const config: Config = {
         danger: "#e0575b",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+        // One superfamily: IBM Plex Sans for interface, Plex Mono for anything
+        // numeric. Reads as an instrument rather than a template.
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       borderRadius: {
         control: "8px",
