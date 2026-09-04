@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { CountUp } from "@/components/CountUp";
 import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/motion";
-import { SupplyChainPath } from "@/components/SupplyChainPath";
+import { SupplyChainAct } from "@/components/SupplyChainAct";
 import { OrbitAct } from "@/components/orbit/OrbitAct";
 import { ApiError, getToken } from "@/lib/api";
 import { useBillingStatus, useCreateCheckout } from "@/lib/hooks";
@@ -396,67 +396,55 @@ function Pricing({
 /* --------------------------------------------------------------------------- */
 
 /**
- * "Resilience, made computable", paired with one lane of a supply chain.
+ * "Resilience, made computable": a statement block, then a pinned walk down one
+ * lane of a supply chain.
  *
- * Same language as the orbit act: the diagram holds still while scrolling moves
- * a signal down it, so the section demonstrates its own claim rather than
- * asserting it. No second globe here; the act already spends the page's one
- * WebGL context, and a second one competed with it for the render loop.
+ * Same language as the orbit act. The lane holds still and scrolling steps you
+ * from stage to stage, with that stage's copy exchanged beside it, so the
+ * section demonstrates its own claim rather than asserting it.
  */
 function About() {
-  const ref = useRef<HTMLElement>(null);
   return (
-    <section
-      id="about"
-      ref={ref}
-      className="relative scroll-mt-28 px-6 py-24 md:h-[190svh] md:py-0"
-    >
-      <div className="md:sticky md:top-0 md:flex md:h-[100svh] md:items-center">
-        <div className="mx-auto grid w-full max-w-5xl gap-14 md:grid-cols-[1.05fr_0.95fr] md:items-center">
-          <div>
-            <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
-              Resilience, made computable.
-            </h2>
-            <p className="mt-6 text-[15.5px] leading-[1.8] text-muted">
-              Supply chains break in ways spreadsheets cannot anticipate. Chainsilience AI was
-              built to turn the constant noise of global events (earthquakes, port congestion,
-              export controls, strikes) into a clear, ranked picture of what threatens{" "}
-              <em>your</em> business and what to do about it.
-            </p>
-            <p className="mt-5 text-[15.5px] leading-[1.8] text-muted">
-              We pair a live digital twin of your network with explainable AI scoring and Monte
-              Carlo simulation, so every recommendation arrives with its reasoning attached rather
-              than as a black box.
-            </p>
-            <div className="mt-9 flex flex-wrap gap-2.5">
-              {[
-                "Explainable by design",
-                "Deterministic fallbacks",
-                "Company-scoped and private",
-              ].map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium text-muted"
-                  style={{
-                    borderColor: "rgba(148,163,184,0.16)",
-                    background: "rgba(148,163,184,0.05)",
-                  }}
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="num mb-6 text-[10.5px] uppercase tracking-[0.16em] text-muted/70">
-              One lane, end to end
-            </div>
-            <SupplyChainPath sectionRef={ref} />
+    <>
+      <section id="about" className="scroll-mt-28 px-6 pb-16 pt-28">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
+            Resilience, made computable.
+          </h2>
+          <p className="mt-6 text-[15.5px] leading-[1.8] text-muted">
+            Supply chains break in ways spreadsheets cannot anticipate. Chainsilience AI was built
+            to turn the constant noise of global events (earthquakes, port congestion, export
+            controls, strikes) into a clear, ranked picture of what threatens <em>your</em> business
+            and what to do about it.
+          </p>
+          <p className="mt-5 text-[15.5px] leading-[1.8] text-muted">
+            We pair a live digital twin of your network with explainable AI scoring and Monte Carlo
+            simulation, so every recommendation arrives with its reasoning attached rather than as a
+            black box.
+          </p>
+          <div className="mt-9 flex flex-wrap gap-2.5">
+            {[
+              "Explainable by design",
+              "Deterministic fallbacks",
+              "Company-scoped and private",
+            ].map((t) => (
+              <span
+                key={t}
+                className="rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium text-muted"
+                style={{
+                  borderColor: "rgba(148,163,184,0.16)",
+                  background: "rgba(148,163,184,0.05)",
+                }}
+              >
+                {t}
+              </span>
+            ))}
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <SupplyChainAct />
+    </>
   );
 }
 
