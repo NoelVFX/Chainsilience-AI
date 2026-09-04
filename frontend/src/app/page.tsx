@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { CountUp } from "@/components/CountUp";
 import { Logo } from "@/components/Logo";
+import { Reveal } from "@/components/motion";
+import { SupplyChainPath } from "@/components/SupplyChainPath";
 import { OrbitAct } from "@/components/orbit/OrbitAct";
 import { ApiError, getToken } from "@/lib/api";
 import { useBillingStatus, useCreateCheckout } from "@/lib/hooks";
@@ -250,13 +253,15 @@ function Proof() {
   return (
     <section className="mx-auto max-w-5xl px-6 pb-8 pt-24">
       <div className="grid grid-cols-2 gap-x-6 gap-y-9 md:grid-cols-4">
-        {STATS.map((s) => (
-          <div key={s.label}>
-            <div className="num text-[30px] font-medium leading-none tracking-tight text-text">
-              {s.value}
-            </div>
+        {STATS.map((s, i) => (
+          <Reveal key={s.label} delay={i * 0.08} amount={0.6}>
+            <CountUp
+              value={s.value}
+              delayMs={150 + i * 80}
+              className="num block text-[30px] font-medium leading-none tracking-tight text-text"
+            />
             <div className="mt-2.5 text-[12.5px] leading-snug text-muted">{s.label}</div>
-          </div>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -324,12 +329,12 @@ function Pricing({
         </div>
       )}
       <div className="grid items-stretch gap-5 md:grid-cols-3">
-        {PLANS.map((p) => {
+        {PLANS.map((p, i) => {
           const current = isCurrentPlan(p.name);
           return (
+            <Reveal key={p.name} delay={i * 0.09} amount={0.25} className="flex">
             <div
-              key={p.name}
-              className="relative flex flex-col rounded-panel border p-7"
+              className="relative flex w-full flex-col rounded-panel border p-7"
               style={{
                 borderColor: p.highlight ? "rgba(91,141,239,0.35)" : "rgba(148,163,184,0.12)",
                 background: p.highlight ? "rgba(91,141,239,0.05)" : "rgba(19,24,34,0.6)",
@@ -380,6 +385,7 @@ function Pricing({
                     : p.cta}
               </button>
             </div>
+            </Reveal>
           );
         })}
       </div>
@@ -390,40 +396,64 @@ function Pricing({
 /* --------------------------------------------------------------------------- */
 
 /**
- * A single statement column. Deliberately has no second globe: the orbit act
- * already spends the page's one 3D moment, and mounting a second WebGL context
- * here competed with it for the render loop.
+ * "Resilience, made computable", paired with one lane of a supply chain.
+ *
+ * Same language as the orbit act: the diagram holds still while scrolling moves
+ * a signal down it, so the section demonstrates its own claim rather than
+ * asserting it. No second globe here; the act already spends the page's one
+ * WebGL context, and a second one competed with it for the render loop.
  */
 function About() {
+  const ref = useRef<HTMLElement>(null);
   return (
-    <section id="about" className="scroll-mt-28 px-6 py-28">
-      <div className="mx-auto max-w-2xl">
-        <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
-          Resilience, made computable.
-        </h2>
-        <p className="mt-6 text-[15.5px] leading-[1.8] text-muted">
-          Supply chains break in ways spreadsheets cannot anticipate. Chainsilience AI was built to
-          turn the constant noise of global events (earthquakes, port congestion, export controls,
-          strikes) into a clear, ranked picture of what threatens <em>your</em> business and what to
-          do about it.
-        </p>
-        <p className="mt-5 text-[15.5px] leading-[1.8] text-muted">
-          We pair a live digital twin of your network with explainable AI scoring and Monte Carlo
-          simulation, so every recommendation arrives with its reasoning attached rather than as a
-          black box.
-        </p>
-        <div className="mt-9 flex flex-wrap gap-2.5">
-          {["Explainable by design", "Deterministic fallbacks", "Company-scoped and private"].map(
-            (t) => (
-              <span
-                key={t}
-                className="rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium text-muted"
-                style={{ borderColor: "rgba(148,163,184,0.16)", background: "rgba(148,163,184,0.05)" }}
-              >
-                {t}
-              </span>
-            ),
-          )}
+    <section
+      id="about"
+      ref={ref}
+      className="relative scroll-mt-28 px-6 py-24 md:h-[190svh] md:py-0"
+    >
+      <div className="md:sticky md:top-0 md:flex md:h-[100svh] md:items-center">
+        <div className="mx-auto grid w-full max-w-5xl gap-14 md:grid-cols-[1.05fr_0.95fr] md:items-center">
+          <div>
+            <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
+              Resilience, made computable.
+            </h2>
+            <p className="mt-6 text-[15.5px] leading-[1.8] text-muted">
+              Supply chains break in ways spreadsheets cannot anticipate. Chainsilience AI was
+              built to turn the constant noise of global events (earthquakes, port congestion,
+              export controls, strikes) into a clear, ranked picture of what threatens{" "}
+              <em>your</em> business and what to do about it.
+            </p>
+            <p className="mt-5 text-[15.5px] leading-[1.8] text-muted">
+              We pair a live digital twin of your network with explainable AI scoring and Monte
+              Carlo simulation, so every recommendation arrives with its reasoning attached rather
+              than as a black box.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-2.5">
+              {[
+                "Explainable by design",
+                "Deterministic fallbacks",
+                "Company-scoped and private",
+              ].map((t) => (
+                <span
+                  key={t}
+                  className="rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium text-muted"
+                  style={{
+                    borderColor: "rgba(148,163,184,0.16)",
+                    background: "rgba(148,163,184,0.05)",
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="num mb-6 text-[10.5px] uppercase tracking-[0.16em] text-muted/70">
+              One lane, end to end
+            </div>
+            <SupplyChainPath sectionRef={ref} />
+          </div>
         </div>
       </div>
     </section>

@@ -95,3 +95,35 @@ export function AnimatedBar({ pct, gradient }: { pct: number; gradient: string }
     </div>
   );
 }
+
+/**
+ * Fade + rise the first time the element is scrolled into view. Unlike FadeUp,
+ * which fires on mount, this waits until the reader actually reaches it, so a
+ * section far down the page still has its entrance when they get there.
+ */
+export function Reveal({
+  children,
+  delay = 0,
+  y = 16,
+  amount = 0.4,
+  className,
+}: {
+  children: ReactNode;
+  delay?: number;
+  y?: number;
+  amount?: number;
+  className?: string;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={reduced ? false : { opacity: 0, y }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount }}
+      transition={{ duration: 0.5, delay, ease: EASE }}
+    >
+      {children}
+    </motion.div>
+  );
+}

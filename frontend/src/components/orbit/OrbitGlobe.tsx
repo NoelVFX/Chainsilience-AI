@@ -1,13 +1,13 @@
 "use client";
 
 import { Billboard, Line } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import type { MotionValue } from "framer-motion";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { latLonToVector3 } from "../three/latlon";
-import { CHAPTERS, type OrbitArc, type OrbitMarker } from "./chapters";
+import { CHAPTERS, type OrbitArc, type OrbitFocus, type OrbitMarker } from "./chapters";
 
 const R = 1;
 const DEG = Math.PI / 180;
@@ -177,11 +177,36 @@ interface Props {
   progress: MotionValue<number>;
   /** Index of the chapter whose markers and arcs are currently mounted. */
   chapter: number;
+  /** Set while a capability card is open: magnify the rim nearest that card. */
+  focus?: OrbitFocus | null;
+  /**
+   * True when the canvas fills the whole stage rather than a globe-sized box.
+   * The scene is then scaled down so the sphere still reads at the intended
+   * diameter, which leaves empty canvas around it for a magnified globe to grow
+   * into. Without that headroom, zooming just clips against the canvas edge.
+   */
+  autoScale?: boolean;
   reducedMotion?: boolean;
 }
 
-export function OrbitGlobe({ progress, chapter, reducedMotion = false }: Props) {
+export function OrbitGlobe({
+  progress,
+  chapter,
+  focus = null,
+  autoScale = false,
+  reducedMotion = false,
+}: Props) {
   const groupRef = useRef<THREE.Group>(null);
+  const focusRef = useRef<THREE.Group>(null);
+  const size = useThree((st) => st.size);
+
+  // Mirrors GLOBE in OrbitAct: min(32svh, 62vw). Scaling by that fraction of the
+  // canvas height keeps the sphere exactly the size it was when the canvas was
+  // only globe-sized.
+  const base =
+    autoScale && size.height > 0
+      ? Math.min(size.height * 0.32, size.width * 0.62) / size.height
+      : 1;
 
   const earthTex = useMemo(() => {
     const t = new THREE.TextureLoader().load("/textures/earth-blue-marble.jpg");
@@ -217,6 +242,24 @@ export function OrbitGlobe({ progress, chapter, reducedMotion = false }: Props) 
 
     g.rotation.y = THREE.MathUtils.damp(g.rotation.y, lonToYaw(lon) + sway, 3.2, d);
     g.rotation.x = THREE.MathUtils.damp(g.rotation.x, lat * DEG * 0.55, 3.2, d);
+
+    // Magnify toward an open card. Scaling about the centre would push the
+    // near rim off screen, so the whole globe is pushed back along the card's
+    // direction by exactly the growth at radius 1: the piece of earth nearest
+    // the card stays put and blooms outward from there.
+    const fg = focusRef.current;
+    if (fg) {
+      const zoom = focus ? focus.zoom : 1;
+      const target = base * zoom;
+      // Offsets are in the parent's units, where the sphere's radius is `base`.
+      const push = base * (1 - zoom) * 1.05;
+      // Screen y runs down, three.js y runs up, hence the sign flip on uy.
+      const tx = focus ? push * focus.ux : 0;
+      const ty = focus ? -push * focus.uy : 0;
+      fg.scale.setScalar(THREE.MathUtils.damp(fg.scale.x, target, 4.4, d));
+      fg.position.x = THREE.MathUtils.damp(fg.position.x, tx, 4.4, d);
+      fg.position.y = THREE.MathUtils.damp(fg.position.y, ty, 4.4, d);
+    }
   });
 
   return (
@@ -227,6 +270,7 @@ export function OrbitGlobe({ progress, chapter, reducedMotion = false }: Props) 
       <directionalLight position={[4, 3, 5]} intensity={0.85} color="#cfeaff" />
       <pointLight position={[-4, -2, -3]} intensity={0.4} color="#5b8def" />
 
+      <group ref={focusRef} scale={base}>
       <group ref={groupRef}>
         <mesh>
           <sphereGeometry args={[R, 64, 64]} />
@@ -251,11 +295,12 @@ export function OrbitGlobe({ progress, chapter, reducedMotion = false }: Props) 
         {active.scan && !reducedMotion && <ScanRing />}
       </group>
 
-      {/* Atmosphere rim — a thin back-faced shell, not an outer glow. */}
+      {/* Atmosphere rim: a thin back-faced shell, not an outer glow. */}
       <mesh scale={1.14}>
         <sphereGeometry args={[R, 32, 32]} />
         <meshBasicMaterial color="#5b8def" transparent opacity={0.08} side={THREE.BackSide} />
       </mesh>
+      </group>
     </>
   );
 }

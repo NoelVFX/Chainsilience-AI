@@ -138,6 +138,16 @@ export const CHAPTERS: OrbitChapter[] = [
   },
 ];
 
+/**
+ * Where the globe should magnify to. `ux`/`uy` is a unit vector from the globe's
+ * centre toward the thing being focused, in screen space (y down).
+ */
+export interface OrbitFocus {
+  ux: number;
+  uy: number;
+  zoom: number;
+}
+
 export interface Capability {
   k: string;
   title: string;

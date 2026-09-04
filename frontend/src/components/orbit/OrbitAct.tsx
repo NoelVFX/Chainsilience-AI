@@ -10,10 +10,10 @@ import {
   type MotionValue,
 } from "framer-motion";
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { CapabilityConstellation, CapabilityGrid } from "./CapabilityConstellation";
-import { CHAPTERS, type OrbitChapter } from "./chapters";
+import { CHAPTERS, type OrbitChapter, type OrbitFocus } from "./chapters";
 
 const OrbitCanvas = dynamic(() => import("./OrbitCanvas"), { ssr: false, loading: () => null });
 
@@ -53,6 +53,11 @@ export function OrbitAct({ onLaunch, onSchedule }: Props) {
   const actRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion() ?? false;
   const [chapter, setChapter] = useState(0);
+  // Set while a capability card is open. The cards are rendered inside a
+  // chapter, but the globe they magnify is owned by the stage, so the focus
+  // has to live up here.
+  const [focus, setFocus] = useState<OrbitFocus | null>(null);
+  const onFocusChange = useCallback((f: OrbitFocus | null) => setFocus(f), []);
 
   const { scrollYProgress } = useScroll({
     target: actRef,
@@ -124,10 +129,16 @@ export function OrbitAct({ onLaunch, onSchedule }: Props) {
 
       <div className="sticky top-0 h-[100svh] w-full">
         {/* The constant: one earth, dead centre, for the whole act. */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div style={{ width: GLOBE, height: GLOBE }}>
-            <OrbitCanvas progress={scrollYProgress} chapter={chapter} />
-          </div>
+        {/* The canvas fills the stage rather than a globe-sized box, and the
+            scene is scaled down to compensate. That headroom is what lets an
+            opened card magnify the earth without it clipping at a canvas edge. */}
+        <div className="pointer-events-none absolute inset-0">
+          <OrbitCanvas
+            progress={scrollYProgress}
+            chapter={chapter}
+            focus={focus}
+            autoScale
+          />
         </div>
 
         {/* Scrim: darkens the top and bottom bands so copy always has ground
@@ -152,6 +163,7 @@ export function OrbitAct({ onLaunch, onSchedule }: Props) {
             active={i === chapter}
             onLaunch={onLaunch}
             onSchedule={onSchedule}
+            onFocusChange={onFocusChange}
           />
         ))}
 
@@ -170,6 +182,7 @@ function Chapter({
   active,
   onLaunch,
   onSchedule,
+  onFocusChange,
 }: {
   chapter: OrbitChapter;
   index: number;
@@ -177,6 +190,7 @@ function Chapter({
   active: boolean;
   onLaunch: () => void;
   onSchedule: () => void;
+  onFocusChange: (focus: OrbitFocus | null) => void;
 }) {
   const step = 1 / (N - 1);
   const c = index * step;
@@ -215,7 +229,7 @@ function Chapter({
         >
           {chapter.headline}
         </motion.h2>
-        <CapabilityConstellation active={active} />
+        <CapabilityConstellation active={active} onFocusChange={onFocusChange} />
       </motion.div>
     );
   }

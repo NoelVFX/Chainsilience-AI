@@ -4,11 +4,14 @@ import { Canvas, useThree } from "@react-three/fiber";
 import type { MotionValue } from "framer-motion";
 import { useEffect } from "react";
 
+import type { OrbitFocus } from "./chapters";
 import { OrbitGlobe } from "./OrbitGlobe";
 
 interface Props {
   progress: MotionValue<number>;
   chapter: number;
+  focus?: OrbitFocus | null;
+  autoScale?: boolean;
   reducedMotion?: boolean;
 }
 
@@ -47,7 +50,13 @@ function SizeSync() {
  * The WebGL surface for the orbit act. Isolated in its own module so it can be
  * dynamically imported with ssr:false: Three.js must never run on the server.
  */
-export default function OrbitCanvas({ progress, chapter, reducedMotion = false }: Props) {
+export default function OrbitCanvas({
+  progress,
+  chapter,
+  focus = null,
+  autoScale = false,
+  reducedMotion = false,
+}: Props) {
   return (
     <Canvas
       dpr={[1, 1.6]}
@@ -57,7 +66,13 @@ export default function OrbitCanvas({ progress, chapter, reducedMotion = false }
       style={{ background: "transparent", width: "100%", height: "100%" }}
     >
       <SizeSync />
-      <OrbitGlobe progress={progress} chapter={chapter} reducedMotion={reducedMotion} />
+      <OrbitGlobe
+        progress={progress}
+        chapter={chapter}
+        focus={focus}
+        autoScale={autoScale}
+        reducedMotion={reducedMotion}
+      />
     </Canvas>
   );
 }
