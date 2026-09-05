@@ -18,6 +18,14 @@ const SLOTS: [number, number][] = [
 /** Closed cards are a fixed height, so every position is known before layout. */
 const CLOSED_H = 96;
 /**
+ * While one card is open the other five collapse to just their index and dock
+ * against the outer edge. Fading them in place left five ghost panels floating
+ * over the magnified earth; a small chip reads as "still here, not now" and
+ * keeps them clickable, so you can fly straight from one region to another.
+ */
+const CHIP_W = 46;
+const CHIP_H = 34;
+/**
  * How far the earth blows up when a card is opened.
  *
  * Deliberately past the point where the sphere still fits the stage. Anything
@@ -76,15 +84,38 @@ function useGeometry(ref: React.RefObject<HTMLDivElement>): Geometry | null {
   return geo;
 }
 
-/** Where a card sits, closed and open, plus the direction it points. */
-function placement(geo: Geometry, i: number, open: boolean) {
+type CardMode = "closed" | "open" | "chip";
+
+/** Where a card sits in each of its three states, plus the way it points. */
+function placement(geo: Geometry, i: number, mode: CardMode) {
   const [sx, sy] = SLOTS[i];
   const dx = (sy === 0 ? geo.dxSide : geo.dxCorner) * sx;
   const dy = geo.dyCorner * sy;
 
   const closedLeft = geo.w / 2 + dx - geo.cardW / 2;
+  const closedTop = geo.h / 2 + dy - CLOSED_H / 2;
+  const len = Math.hypot(dx, dy) || 1;
+  const focus = { ux: dx / len, uy: dy / len, zoom: FOCUS_ZOOM } as OrbitFocus;
+
+  if (mode === "chip") {
+    // Docked hard against the outer edge and nudged further out, so the
+    // magnified earth has the middle of the frame entirely to itself.
+    const left = sx < 0 ? closedLeft - 14 : closedLeft + geo.cardW - CHIP_W + 14;
+    return {
+      left: Math.min(Math.max(left, 12), geo.w - CHIP_W - 12),
+      top: Math.min(
+        Math.max(closedTop + (CLOSED_H - CHIP_H) / 2, 12),
+        geo.h - CHIP_H - 12,
+      ),
+      width: CHIP_W,
+      sx,
+      focus,
+    };
+  }
+
+  const open = mode === "open";
   const top = Math.min(
-    Math.max(geo.h / 2 + dy - CLOSED_H / 2, 16),
+    Math.max(closedTop, 16),
     Math.max(16, geo.h - (open ? 236 : CLOSED_H) - 16),
   );
 
@@ -96,14 +127,7 @@ function placement(geo: Geometry, i: number, open: boolean) {
     left = Math.min(Math.max(left, 16), geo.w - geo.openW - 16);
   }
 
-  const len = Math.hypot(dx, dy) || 1;
-  return {
-    left,
-    top,
-    width: open ? geo.openW : geo.cardW,
-    sx,
-    focus: { ux: dx / len, uy: dy / len, zoom: FOCUS_ZOOM } as OrbitFocus,
-  };
+  return { left, top, width: open ? geo.openW : geo.cardW, sx, focus };
 }
 
 interface Props {
@@ -136,7 +160,7 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
       onFocusChange?.(null);
       return;
     }
-    onFocusChange?.(placement(geo, open, true).focus);
+    onFocusChange?.(placement(geo, open, "open").focus);
   }, [open, geo, onFocusChange]);
 
   useEffect(() => {
@@ -190,8 +214,9 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
 
       {CAPABILITIES.map((c, i) => {
         const isOpen = open === i;
-        const p = placement(geo, i, isOpen);
-        const dimmed = open !== null && !isOpen;
+        const mode: CardMode = isOpen ? "open" : open !== null ? "chip" : "closed";
+        const chip = mode === "chip";
+        const p = placement(geo, i, mode);
         return (
           <motion.button
             key={c.k}
@@ -199,14 +224,23 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
             layout={!reduced}
             transition={reduced ? { duration: 0 } : SPRING}
             aria-expanded={isOpen}
-            className="tilt-card absolute z-20 rounded-panel border p-4 text-left"
+            className={`tilt-card absolute z-20 rounded-panel border text-left ${
+              chip ? "flex items-center justify-center p-0" : "p-4"
+            }`}
             style={{
               left: p.left,
               top: p.top,
               width: p.width,
-              minHeight: isOpen ? undefined : CLOSED_H,
+              minHeight: isOpen ? undefined : chip ? CHIP_H : CLOSED_H,
+              height: chip ? CHIP_H : undefined,
               borderColor: isOpen ? "rgba(91,141,239,0.45)" : "rgba(148,163,184,0.14)",
-              background: isOpen ? "rgba(14,19,28,0.94)" : "rgba(16,21,30,0.82)",
+              // Chips sit over a magnified, bright earth, so they need a more
+              // opaque ground than a card floating on the page background does.
+              background: isOpen
+                ? "rgba(14,19,28,0.94)"
+                : chip
+                  ? "rgba(10,14,21,0.9)"
+                  : "rgba(16,21,30,0.82)",
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
               boxShadow: isOpen
@@ -214,7 +248,7 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
                 : undefined,
               pointerEvents: active ? "auto" : "none",
             }}
-            animate={{ opacity: dimmed ? 0.16 : 1 }}
+            animate={{ opacity: chip ? 0.6 : 1 }}
             onMouseEnter={() => setLit(i)}
             onMouseLeave={() => setLit((v) => (v === i ? null : v))}
             onClick={(e) => {
@@ -222,7 +256,15 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
               setOpen(isOpen ? null : i);
             }}
           >
-            <motion.div layout={!reduced} transition={reduced ? { duration: 0 } : SPRING}>
+            <motion.div
+              layout={!reduced}
+              transition={reduced ? { duration: 0 } : SPRING}
+              className={chip ? "num text-[11px] tracking-[0.12em] text-accent/80" : undefined}
+            >
+              {chip ? (
+                c.k
+              ) : (
+                <>
               <div className="num mb-2 flex items-center justify-between text-[10.5px] tracking-[0.12em] text-accent/70">
                 <span>{c.k}</span>
                 <span
@@ -251,6 +293,8 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
                   </motion.p>
                 )}
               </AnimatePresence>
+                </>
+              )}
             </motion.div>
           </motion.button>
         );
@@ -365,14 +409,17 @@ function Arrows({
       viewBox={`0 0 ${geo.w} ${geo.h}`}
     >
       {paths.map((p, i) => {
-        const on = lit === i || open === i;
-        const muted = open !== null && open !== i;
+        const on = lit === i;
         return (
           <g
             key={i}
             style={{
-              transition: "opacity 220ms cubic-bezier(0.23,1,0.32,1)",
-              opacity: muted ? 0.1 : on ? 1 : 0.42,
+              transition: "opacity 260ms cubic-bezier(0.23,1,0.32,1)",
+              // Every arrow starts at the globe's resting rim. Once the camera
+              // has dived in, that rim is deep inside the magnified sphere, so
+              // an arrow drawn there would begin in the middle of the earth.
+              // The zoom itself is the connection at that point.
+              opacity: open !== null ? 0 : on ? 1 : 0.42,
             }}
           >
             <line
