@@ -27,6 +27,32 @@ const FOCUS_ANCHOR = 0.72;
 /** Shortest signed way round a circle, so a bearing never takes the long way. */
 const shortestTurn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
+/**
+ * One step of a critically damped spring, integrated semi-implicitly.
+ *
+ * This is the difference between a camera and a value snapping to a target.
+ * Exponential damping leaves at maximum velocity and decays, so a move begins
+ * with a jump and then coasts. A spring starts from rest, accelerates, and
+ * decelerates into place, which is how anything with mass actually moves.
+ */
+function springStep(
+  vel: { v: number },
+  value: number,
+  target: number,
+  freq: number,
+  dt: number,
+) {
+  const k = freq * freq;
+  vel.v += ((target - value) * k - vel.v * 2 * freq) * dt;
+  return value + vel.v * dt;
+}
+
+/** How briskly the camera moves. Higher settles sooner. */
+const CAM_FREQ = 9;
+/** A short settle back before the camera dives in, so the move has a takeoff. */
+const WINDUP_S = 0.2;
+const WINDUP_ZOOM = 0.86;
+
 const TONE: Record<OrbitMarker["tone"], string> = {
   node: "#5b8def",
   low: "#4bb384",
@@ -219,6 +245,10 @@ export function OrbitGlobe({
   // moving between two regions is a flight rather than a cross-fade.
   const camTheta = useRef(0);
   const camLogZoom = useRef(0);
+  const camThetaVel = useRef({ v: 0 });
+  const camZoomVel = useRef({ v: 0 });
+  const windup = useRef(0);
+  const wasFocused = useRef(false);
 
   // Mirrors GLOBE in OrbitAct: min(32svh, 62vw). Scaling by that fraction of the
   // canvas height keeps the sphere exactly the size it was when the canvas was
@@ -277,8 +307,16 @@ export function OrbitGlobe({
     // magnification, which is disorienting and looks like nothing physical.
     const fg = focusRef.current;
     if (fg) {
+      const focused = !!focus;
       const targetZoom = focus ? focus.zoom : 1;
       const z0 = Math.exp(camLogZoom.current);
+
+      // Anticipation. Starting in from rest, the camera settles back a little
+      // before it dives, which is what gives the move a takeoff instead of an
+      // instant departure. Only on the way in, and only from a standstill.
+      if (focused && !wasFocused.current && z0 < 1.05) windup.current = WINDUP_S;
+      wasFocused.current = focused;
+      if (windup.current > 0) windup.current = Math.max(0, windup.current - d);
 
       // Where the camera is heading. On close it keeps its bearing, so it pulls
       // straight back out of wherever it was looking.
@@ -292,19 +330,25 @@ export function OrbitGlobe({
       // is still crossing it holds back near the whole globe, then dives in once
       // it has arrived: out, over, down.
       const crossing = Math.min(1, Math.abs(turn) / (Math.PI / 2));
-      const aimZoom = THREE.MathUtils.lerp(
-        targetZoom,
-        Math.min(targetZoom, 1.18),
-        crossing * 0.92,
-      );
+      const aimZoom =
+        windup.current > 0
+          ? WINDUP_ZOOM
+          : THREE.MathUtils.lerp(targetZoom, Math.min(targetZoom, 1.18), crossing * 0.92);
 
-      camTheta.current += turn * (1 - Math.exp(-5.6 * d));
-      // Log space, so the dolly runs at a constant perceived rate instead of
-      // crawling out and then rushing the last stretch.
-      camLogZoom.current = THREE.MathUtils.damp(
+      // Springs, not exponential damping. Zoom rides in log space so the dolly
+      // runs at a constant perceived rate rather than rushing the last stretch.
+      camTheta.current = springStep(
+        camThetaVel.current,
+        camTheta.current,
+        camTheta.current + turn,
+        CAM_FREQ,
+        d,
+      );
+      camLogZoom.current = springStep(
+        camZoomVel.current,
         camLogZoom.current,
         Math.log(aimZoom),
-        6.2,
+        CAM_FREQ,
         d,
       );
 
