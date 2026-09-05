@@ -24,6 +24,9 @@ const DEG = Math.PI / 180;
  */
 const FOCUS_ANCHOR = 0.72;
 
+/** Shortest signed way round a circle, so a bearing never takes the long way. */
+const shortestTurn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+
 const TONE: Record<OrbitMarker["tone"], string> = {
   node: "#5b8def",
   low: "#4bb384",
@@ -211,6 +214,11 @@ export function OrbitGlobe({
   const groupRef = useRef<THREE.Group>(null);
   const focusRef = useRef<THREE.Group>(null);
   const size = useThree((st) => st.size);
+  // The camera's own state: which way it is looking, and how far in it is.
+  // Kept as a bearing and a log zoom rather than a target position so that
+  // moving between two regions is a flight rather than a cross-fade.
+  const camTheta = useRef(0);
+  const camLogZoom = useRef(0);
 
   // Mirrors GLOBE in OrbitAct: min(32svh, 62vw). Scaling by that fraction of the
   // canvas height keeps the sphere exactly the size it was when the canvas was
@@ -255,25 +263,57 @@ export function OrbitGlobe({
     g.rotation.y = THREE.MathUtils.damp(g.rotation.y, lonToYaw(lon) + sway, 3.2, d);
     g.rotation.x = THREE.MathUtils.damp(g.rotation.x, lat * DEG * 0.55, 3.2, d);
 
-    // Zoom into the part of the earth nearest an open card, the way an image
-    // viewer zooms at a point: the anchor stays put on screen and the rest of
-    // the sphere expands past the edges of the frame around it.
+    // Fly a camera to the part of the earth nearest an open card.
     //
-    // Anchor A sits at FOCUS_ANCHOR radii along the card's direction. Scaling
-    // by s about the centre would send A to s*A, so the group is translated by
-    // (1 - s) * A to put it back exactly where it started.
+    // The anchor sits at FOCUS_ANCHOR radii along the camera's bearing. Scaling
+    // by z about the centre would send it to z*A, so the group is translated by
+    // (1 - z) * A to hold it exactly still: everything expands around a fixed
+    // point, the way an image viewer zooms.
+    //
+    // What makes it read as a camera rather than a cross-fade is that the
+    // bearing and the zoom are animated separately, and the zoom is pulled back
+    // while the bearing is still turning. Interpolating straight from one
+    // region's transform to another's slides the earth sideways at full
+    // magnification, which is disorienting and looks like nothing physical.
     const fg = focusRef.current;
     if (fg) {
-      const zoom = focus ? focus.zoom : 1;
-      const target = base * zoom;
-      // Offsets are in the parent's units, where the sphere's radius is `base`.
-      const push = base * (1 - zoom) * FOCUS_ANCHOR;
-      // Screen y runs down, three.js y runs up, hence the sign flip on uy.
-      const tx = focus ? push * focus.ux : 0;
-      const ty = focus ? -push * focus.uy : 0;
-      fg.scale.setScalar(THREE.MathUtils.damp(fg.scale.x, target, 4.4, d));
-      fg.position.x = THREE.MathUtils.damp(fg.position.x, tx, 4.4, d);
-      fg.position.y = THREE.MathUtils.damp(fg.position.y, ty, 4.4, d);
+      const targetZoom = focus ? focus.zoom : 1;
+      const z0 = Math.exp(camLogZoom.current);
+
+      // Where the camera is heading. On close it keeps its bearing, so it pulls
+      // straight back out of wherever it was looking.
+      const targetTheta = focus ? Math.atan2(focus.uy, focus.ux) : camTheta.current;
+      // Pulled all the way out the bearing is invisible, since the globe sits
+      // centred. Snap it there instead of swinging the earth around on the way in.
+      if (focus && z0 < 1.05) camTheta.current = targetTheta;
+
+      const turn = shortestTurn(targetTheta - camTheta.current);
+      // How much of the journey is left, over a quarter turn. While the camera
+      // is still crossing it holds back near the whole globe, then dives in once
+      // it has arrived: out, over, down.
+      const crossing = Math.min(1, Math.abs(turn) / (Math.PI / 2));
+      const aimZoom = THREE.MathUtils.lerp(
+        targetZoom,
+        Math.min(targetZoom, 1.18),
+        crossing * 0.92,
+      );
+
+      camTheta.current += turn * (1 - Math.exp(-5.6 * d));
+      // Log space, so the dolly runs at a constant perceived rate instead of
+      // crawling out and then rushing the last stretch.
+      camLogZoom.current = THREE.MathUtils.damp(
+        camLogZoom.current,
+        Math.log(aimZoom),
+        6.2,
+        d,
+      );
+
+      const z = Math.exp(camLogZoom.current);
+      const push = base * (1 - z) * FOCUS_ANCHOR;
+      fg.scale.setScalar(base * z);
+      // Screen y runs down, three.js y runs up, hence the sign flip.
+      fg.position.x = push * Math.cos(camTheta.current);
+      fg.position.y = -push * Math.sin(camTheta.current);
     }
   });
 
