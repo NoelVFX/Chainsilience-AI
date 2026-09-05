@@ -221,7 +221,13 @@ export function CapabilityConstellation({
               }}
               onMouseEnter={() => setLit(i)}
               onMouseLeave={() => setLit((v) => (v === i ? null : v))}
-              onClick={() => setOpen(i)}
+              onClick={() => {
+                setOpen(i);
+                // Aim the camera in the same commit as the click. Leaving this
+                // to the effect below costs an extra render pass before the
+                // scene sees it, which is a frame or two of nothing happening.
+                onFocusChange?.(slot(geo, i).focus);
+              }}
             >
               <div className="num mb-2 text-[10.5px] tracking-[0.12em] text-accent/70">
                 {c.k}
@@ -276,7 +282,7 @@ export function CapabilityConstellation({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.98, transition: { duration: 0.16 } }}
             // Held back a beat, so the camera is already moving when it arrives.
-            transition={{ duration: 0.34, delay: 0.14, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ duration: 0.3, delay: 0.09, ease: [0.23, 1, 0.32, 1] }}
           >
             <div className="num mb-2 flex items-center justify-between text-[10.5px] tracking-[0.12em] text-accent/70">
               <span>{CAPABILITIES[open].k}</span>
