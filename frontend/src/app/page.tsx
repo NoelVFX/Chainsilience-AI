@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ClaimProof } from "@/components/ClaimProof";
 import { CountUp } from "@/components/CountUp";
 import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/motion";
@@ -407,39 +408,26 @@ function About() {
   return (
     <>
       <section id="about" className="scroll-mt-28 px-6 pb-16 pt-28">
-        <div className="mx-auto max-w-2xl">
-          <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
-            Resilience, made computable.
-          </h2>
-          <p className="mt-6 text-[15.5px] leading-[1.8] text-muted">
-            Supply chains break in ways spreadsheets cannot anticipate. Chainsilience AI was built
-            to turn the constant noise of global events (earthquakes, port congestion, export
-            controls, strikes) into a clear, ranked picture of what threatens <em>your</em> business
-            and what to do about it.
-          </p>
-          <p className="mt-5 text-[15.5px] leading-[1.8] text-muted">
-            We pair a live digital twin of your network with explainable AI scoring and Monte Carlo
-            simulation, so every recommendation arrives with its reasoning attached rather than as a
-            black box.
-          </p>
-          <div className="mt-9 flex flex-wrap gap-2.5">
-            {[
-              "Explainable by design",
-              "Deterministic fallbacks",
-              "Company-scoped and private",
-            ].map((t) => (
-              <span
-                key={t}
-                className="rounded-full border px-3.5 py-1.5 text-[12.5px] font-medium text-muted"
-                style={{
-                  borderColor: "rgba(148,163,184,0.16)",
-                  background: "rgba(148,163,184,0.05)",
-                }}
-              >
-                {t}
-              </span>
-            ))}
+        {/* The prose keeps its reading measure; the card row gets the wider
+            column, so the three claims sit on one line. */}
+        <div className="mx-auto max-w-4xl">
+          <div className="max-w-2xl">
+            <h2 className="text-[clamp(1.7rem,3.6vw,2.5rem)] font-semibold tracking-[-0.022em] text-text">
+              Resilience, made computable.
+            </h2>
+            <p className="mt-6 text-[15.5px] leading-[1.8] text-muted">
+              Supply chains break in ways spreadsheets cannot anticipate. Chainsilience AI was built
+              to turn the constant noise of global events (earthquakes, port congestion, export
+              controls, strikes) into a clear, ranked picture of what threatens <em>your</em> business
+              and what to do about it.
+            </p>
+            <p className="mt-5 text-[15.5px] leading-[1.8] text-muted">
+              We pair a live digital twin of your network with explainable AI scoring and Monte Carlo
+              simulation, so every recommendation arrives with its reasoning attached rather than as a
+              black box.
+            </p>
           </div>
+          <ClaimProof />
         </div>
       </section>
 

@@ -512,3 +512,99 @@ a:hover {
     backdrop-filter: blur(1em) brightness(6) hue-rotate(360deg);
   }
 }
+
+/* Evidence chips: pressable, and hover only where there is a real pointer. */
+.claim-chip {
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 140ms var(--ease-out);
+}
+.claim-chip:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) and (pointer: fine) {
+  .claim-chip:hover {
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Flip card: the claim on the front, the evidence behind it.          *
+ * Structure follows the common Uiverse pattern (perspective on the    *
+ * host, preserve-3d on the inner, backface-visibility on the faces),  *
+ * but the palette is ours and the timing is a UI timing, not 800ms.   *
+ * ------------------------------------------------------------------ */
+.flip-card {
+  perspective: 1200px;
+  background: transparent;
+}
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 520ms var(--ease-move);
+  /* The inner is the button, so it carries the UA button reset too. */
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.flip-card-inner:focus-visible {
+  outline: none;
+}
+.flip-card-inner:focus-visible .flip-card-face {
+  border-color: rgba(91, 141, 239, 0.55);
+  box-shadow:
+    0 0 0 2px rgba(91, 141, 239, 0.35),
+    0 10px 26px rgba(0, 0, 0, 0.32);
+}
+.flip-card[data-flipped="true"] .flip-card-inner {
+  transform: rotateY(180deg);
+}
+.flip-card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(16, 21, 30, 0.92);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  /* No backdrop-filter here: it is unreliable inside a preserve-3d subtree. */
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+}
+.flip-card-back {
+  transform: rotateY(180deg);
+  border-color: rgba(91, 141, 239, 0.4);
+  background: rgba(14, 19, 28, 0.96);
+}
+
+/* Reduced motion: no rotation. The faces cross-fade in place instead. */
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-inner {
+    transform: none !important;
+    transform-style: flat;
+  }
+  .flip-card-face {
+    -webkit-backface-visibility: visible;
+    backface-visibility: visible;
+    transition: opacity 180ms ease;
+  }
+  .flip-card-back {
+    transform: none;
+    opacity: 0;
+  }
+  .flip-card[data-flipped="true"] .flip-card-front {
+    opacity: 0;
+  }
+  .flip-card[data-flipped="true"] .flip-card-back {
+    opacity: 1;
+  }
+}
