@@ -17,8 +17,15 @@ const SLOTS: [number, number][] = [
 
 /** Closed cards are a fixed height, so every position is known before layout. */
 const CLOSED_H = 96;
-/** How far the globe blows up when a card is opened. */
-const FOCUS_ZOOM = 1.95;
+/**
+ * How far the earth blows up when a card is opened.
+ *
+ * Deliberately past the point where the sphere still fits the stage. Anything
+ * that keeps the whole globe in frame reads as inflating a ball; the zoom only
+ * reads as zooming once the earth overflows the edges and you are looking at a
+ * crop of it, the way an image viewer works.
+ */
+const FOCUS_ZOOM = 4.6;
 
 const SPRING = { type: "spring" as const, duration: 0.44, bounce: 0.16 };
 

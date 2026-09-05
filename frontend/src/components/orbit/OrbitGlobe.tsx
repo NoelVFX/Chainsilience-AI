@@ -12,6 +12,18 @@ import { CHAPTERS, type OrbitArc, type OrbitFocus, type OrbitMarker } from "./ch
 const R = 1;
 const DEG = Math.PI / 180;
 
+/**
+ * How far along the card's direction the point being zoomed into sits, as a
+ * fraction of the globe's radius. This is the anchor: it holds still on screen
+ * while everything expands around it, which is what makes the gesture read as
+ * zooming into a photograph at a point rather than inflating a ball.
+ *
+ * Anchoring at the rim (1.0 or beyond) meant the whole sphere stayed in frame
+ * and simply got bigger. Just inside the disc puts the region the card names
+ * under the magnification instead.
+ */
+const FOCUS_ANCHOR = 0.72;
+
 const TONE: Record<OrbitMarker["tone"], string> = {
   node: "#5b8def",
   low: "#4bb384",
@@ -243,16 +255,19 @@ export function OrbitGlobe({
     g.rotation.y = THREE.MathUtils.damp(g.rotation.y, lonToYaw(lon) + sway, 3.2, d);
     g.rotation.x = THREE.MathUtils.damp(g.rotation.x, lat * DEG * 0.55, 3.2, d);
 
-    // Magnify toward an open card. Scaling about the centre would push the
-    // near rim off screen, so the whole globe is pushed back along the card's
-    // direction by exactly the growth at radius 1: the piece of earth nearest
-    // the card stays put and blooms outward from there.
+    // Zoom into the part of the earth nearest an open card, the way an image
+    // viewer zooms at a point: the anchor stays put on screen and the rest of
+    // the sphere expands past the edges of the frame around it.
+    //
+    // Anchor A sits at FOCUS_ANCHOR radii along the card's direction. Scaling
+    // by s about the centre would send A to s*A, so the group is translated by
+    // (1 - s) * A to put it back exactly where it started.
     const fg = focusRef.current;
     if (fg) {
       const zoom = focus ? focus.zoom : 1;
       const target = base * zoom;
       // Offsets are in the parent's units, where the sphere's radius is `base`.
-      const push = base * (1 - zoom) * 1.05;
+      const push = base * (1 - zoom) * FOCUS_ANCHOR;
       // Screen y runs down, three.js y runs up, hence the sign flip on uy.
       const tx = focus ? push * focus.ux : 0;
       const ty = focus ? -push * focus.uy : 0;
