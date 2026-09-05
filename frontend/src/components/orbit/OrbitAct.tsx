@@ -3,6 +3,7 @@
 import {
   motion,
   useMotionTemplate,
+  useMotionValue,
   useMotionValueEvent,
   useReducedMotion,
   useScroll,
@@ -58,6 +59,11 @@ export function OrbitAct({ onLaunch, onSchedule }: Props) {
   // has to live up here.
   const [focus, setFocus] = useState<OrbitFocus | null>(null);
   const onFocusChange = useCallback((f: OrbitFocus | null) => setFocus(f), []);
+  // One camera, read by two layers. The scene writes its live zoom and bearing
+  // here every frame and the capability cards ride the same values, so the earth
+  // and the cards can never drift out of step.
+  const camZoom = useMotionValue(1);
+  const camBearing = useMotionValue(0);
 
   const { scrollYProgress } = useScroll({
     target: actRef,
@@ -137,6 +143,8 @@ export function OrbitAct({ onLaunch, onSchedule }: Props) {
             progress={scrollYProgress}
             chapter={chapter}
             focus={focus}
+            camZoom={camZoom}
+            camBearing={camBearing}
             autoScale
           />
         </div>
@@ -164,6 +172,8 @@ export function OrbitAct({ onLaunch, onSchedule }: Props) {
             onLaunch={onLaunch}
             onSchedule={onSchedule}
             onFocusChange={onFocusChange}
+            camZoom={camZoom}
+            camBearing={camBearing}
           />
         ))}
 
@@ -183,6 +193,8 @@ function Chapter({
   onLaunch,
   onSchedule,
   onFocusChange,
+  camZoom,
+  camBearing,
 }: {
   chapter: OrbitChapter;
   index: number;
@@ -191,6 +203,8 @@ function Chapter({
   onLaunch: () => void;
   onSchedule: () => void;
   onFocusChange: (focus: OrbitFocus | null) => void;
+  camZoom: MotionValue<number>;
+  camBearing: MotionValue<number>;
 }) {
   const step = 1 / (N - 1);
   const c = index * step;
@@ -229,7 +243,12 @@ function Chapter({
         >
           {chapter.headline}
         </motion.h2>
-        <CapabilityConstellation active={active} onFocusChange={onFocusChange} />
+        <CapabilityConstellation
+          active={active}
+          onFocusChange={onFocusChange}
+          camZoom={camZoom}
+          camBearing={camBearing}
+        />
       </motion.div>
     );
   }

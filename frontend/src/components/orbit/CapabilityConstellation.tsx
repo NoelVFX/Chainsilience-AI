@@ -1,9 +1,17 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { CAPABILITIES, type OrbitFocus } from "./chapters";
+import { CAPABILITIES, FOCUS_ANCHOR, SPHERE_FILL, type OrbitFocus } from "./chapters";
 
 /** Card slots as (sx, sy) direction from the globe, in the order of CAPABILITIES. */
 const SLOTS: [number, number][] = [
@@ -15,34 +23,18 @@ const SLOTS: [number, number][] = [
   [1, 1], //   06 lower right
 ];
 
-/** Closed cards are a fixed height, so every position is known before layout. */
-const CLOSED_H = 96;
-/**
- * While one card is open the other five collapse to just their index and dock
- * against the outer edge. Fading them in place left five ghost panels floating
- * over the magnified earth; a small chip reads as "still here, not now" and
- * keeps them clickable, so you can fly straight from one region to another.
- */
-const CHIP_W = 46;
-const CHIP_H = 34;
-/**
- * How far the earth blows up when a card is opened.
- *
- * Deliberately past the point where the sphere still fits the stage. Anything
- * that keeps the whole globe in frame reads as inflating a ball; the zoom only
- * reads as zooming once the earth overflows the edges and you are looking at a
- * crop of it, the way an image viewer works.
- */
+/** Cards are a fixed height, so every position is known before layout. */
+const CARD_H = 96;
+/** How far the earth blows up when a card is opened. */
 const FOCUS_ZOOM = 4.6;
-
-const SPRING = { type: "spring" as const, duration: 0.44, bounce: 0.16 };
 
 interface Geometry {
   w: number;
   h: number;
+  /** Radius of the globe's box. The sphere itself fills SPHERE_FILL of it. */
   globeR: number;
   cardW: number;
-  openW: number;
+  panelW: number;
   dxSide: number;
   dxCorner: number;
   dyCorner: number;
@@ -69,7 +61,7 @@ function useGeometry(ref: React.RefObject<HTMLDivElement>): Geometry | null {
         // Mirrors GLOBE in OrbitAct: min(32svh, 62vw).
         globeR: Math.min(h * 0.32, w * 0.62) / 2,
         cardW: Math.min(w * 0.208, 300),
-        openW: Math.min(w * 0.3, 400),
+        panelW: Math.min(w * 0.3, 400),
         dxSide: Math.min(w * 0.32, 462),
         dxCorner: Math.min(w * 0.262, 377),
         dyCorner: Math.min(h * 0.29, 262),
@@ -84,63 +76,57 @@ function useGeometry(ref: React.RefObject<HTMLDivElement>): Geometry | null {
   return geo;
 }
 
-type CardMode = "closed" | "open" | "chip";
-
-/** Where a card sits in each of its three states, plus the way it points. */
-function placement(geo: Geometry, i: number, mode: CardMode) {
+/** Where a card sits at rest, and the direction it points from the globe. */
+function slot(geo: Geometry, i: number) {
   const [sx, sy] = SLOTS[i];
   const dx = (sy === 0 ? geo.dxSide : geo.dxCorner) * sx;
   const dy = geo.dyCorner * sy;
-
-  const closedLeft = geo.w / 2 + dx - geo.cardW / 2;
-  const closedTop = geo.h / 2 + dy - CLOSED_H / 2;
   const len = Math.hypot(dx, dy) || 1;
-  const focus = { ux: dx / len, uy: dy / len, zoom: FOCUS_ZOOM } as OrbitFocus;
+  return {
+    sx,
+    left: geo.w / 2 + dx - geo.cardW / 2,
+    top: geo.h / 2 + dy - CARD_H / 2,
+    focus: { ux: dx / len, uy: dy / len, zoom: FOCUS_ZOOM } as OrbitFocus,
+  };
+}
 
-  if (mode === "chip") {
-    // Docked hard against the outer edge and nudged further out, so the
-    // magnified earth has the middle of the frame entirely to itself.
-    const left = sx < 0 ? closedLeft - 14 : closedLeft + geo.cardW - CHIP_W + 14;
-    return {
-      left: Math.min(Math.max(left, 12), geo.w - CHIP_W - 12),
-      top: Math.min(
-        Math.max(closedTop + (CLOSED_H - CHIP_H) / 2, 12),
-        geo.h - CHIP_H - 12,
-      ),
-      width: CHIP_W,
-      sx,
-      focus,
-    };
-  }
-
-  const open = mode === "open";
-  const top = Math.min(
-    Math.max(closedTop, 16),
-    Math.max(16, geo.h - (open ? 236 : CLOSED_H) - 16),
-  );
-
-  // An opened card grows outward, away from the globe, so the magnified earth
-  // has the room it needs on the inner side.
-  let left = closedLeft;
-  if (open) {
-    left = sx < 0 ? closedLeft + geo.cardW - geo.openW : closedLeft;
-    left = Math.min(Math.max(left, 16), geo.w - geo.openW - 16);
-  }
-
-  return { left, top, width: open ? geo.openW : geo.cardW, sx, focus };
+/** Where the detail panel docks: the card's corner, grown outward, kept on screen. */
+function panelBox(geo: Geometry, i: number) {
+  const s = slot(geo, i);
+  const left = s.sx < 0 ? s.left + geo.cardW - geo.panelW : s.left;
+  return {
+    left: Math.min(Math.max(left, 16), geo.w - geo.panelW - 16),
+    top: Math.min(Math.max(s.top, 16), Math.max(16, geo.h - 252)),
+    width: geo.panelW,
+  };
 }
 
 interface Props {
   active: boolean;
   onFocusChange?: (focus: OrbitFocus | null) => void;
+  /** The camera's live state, published by the scene each frame. */
+  camZoom?: MotionValue<number>;
+  camBearing?: MotionValue<number>;
 }
 
-export function CapabilityConstellation({ active, onFocusChange }: Props) {
+export function CapabilityConstellation({
+  active,
+  onFocusChange,
+  camZoom,
+  camBearing,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const geo = useGeometry(hostRef);
   const [lit, setLit] = useState<number | null>(null);
   const [open, setOpen] = useState<number | null>(null);
   const reduced = useReducedMotion() ?? false;
+
+  // Stand-ins for the scene's camera before it has published anything, and in
+  // the grid fallback where there is no scene at all.
+  const idleZoom = useMotionValue(1);
+  const idleBearing = useMotionValue(0);
+  const zoom = camZoom ?? idleZoom;
+  const bearing = camBearing ?? idleBearing;
 
   // Below this the fan does not fit; the same six cards become a plain grid.
   const radial = !!geo && geo.w >= 1000 && geo.h >= 620;
@@ -148,19 +134,18 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
   const close = useCallback(() => setOpen(null), []);
 
   // Scrolling away from the chapter, or shrinking past the fan's threshold,
-  // closes whatever was open. A card left open off-screen would come back
-  // expanded with the globe still magnified into it.
+  // closes whatever was open. A card left open off-screen would come back with
+  // the camera still dived into it.
   useEffect(() => {
     if (!active || !radial) setOpen(null);
   }, [active, radial]);
 
-  // Tell the stage which way to magnify the earth, and to let go on close.
   useEffect(() => {
     if (open === null || !geo) {
       onFocusChange?.(null);
       return;
     }
-    onFocusChange?.(placement(geo, open, "open").focus);
+    onFocusChange?.(slot(geo, open).focus);
   }, [open, geo, onFocusChange]);
 
   useEffect(() => {
@@ -171,6 +156,19 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
+
+  // The camera's anchor, in CSS pixels on this stage: the same point the scene
+  // scales the earth about. Sharing it is what keeps the two layers locked
+  // together instead of drifting apart as the camera moves.
+  const anchorR = geo ? geo.globeR * SPHERE_FILL * FOCUS_ANCHOR : 0;
+  const cx = geo ? geo.w / 2 : 0;
+  const cy = geo ? geo.h / 2 : 0;
+  const originX = useTransform(bearing, (b) => cx + Math.cos(b) * anchorR);
+  const originY = useTransform(bearing, (b) => cy + Math.sin(b) * anchorR);
+  const transformOrigin = useMotionTemplate`${originX}px ${originY}px`;
+  // The constellation fades as the camera passes through it, so card text never
+  // streaks across the frame at several times its size.
+  const sceneOpacity = useTransform(zoom, [1.05, 1.85], [1, 0]);
 
   if (!radial || !geo) {
     return (
@@ -186,119 +184,120 @@ export function CapabilityConstellation({ active, onFocusChange }: Props) {
 
   return (
     <div ref={hostRef} className="absolute inset-0">
-      <Arrows geo={geo} lit={lit} open={open} />
+      {/*
+        The scene layer. The cards belong to the same world as the earth, so the
+        camera carries them too: scaled about the same anchor, by the same
+        factor, on the same frame. Nothing here animates itself out of the way.
+        Diving in simply leaves them behind, which is the whole point.
+      */}
+      <motion.div
+        className="absolute inset-0"
+        style={{
+          scale: reduced ? 1 : zoom,
+          transformOrigin,
+          opacity: reduced ? 1 : sceneOpacity,
+          pointerEvents: open === null && active ? "auto" : "none",
+        }}
+      >
+        <Arrows geo={geo} lit={lit} />
 
-      {/* Click-catcher. The gradient is darker on the card's side and clear on
-          the globe's, so the copy has ground under it without veiling the
-          magnified earth the card is pointing at. */}
+        {CAPABILITIES.map((c, i) => {
+          const s = slot(geo, i);
+          return (
+            <button
+              key={c.k}
+              type="button"
+              aria-expanded={open === i}
+              className="tilt-card absolute rounded-panel border p-4 text-left"
+              style={{
+                left: s.left,
+                top: s.top,
+                width: geo.cardW,
+                minHeight: CARD_H,
+                borderColor: "rgba(148,163,184,0.14)",
+                background: "rgba(16,21,30,0.82)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+              }}
+              onMouseEnter={() => setLit(i)}
+              onMouseLeave={() => setLit((v) => (v === i ? null : v))}
+              onClick={() => setOpen(i)}
+            >
+              <div className="num mb-2 text-[10.5px] tracking-[0.12em] text-accent/70">
+                {c.k}
+              </div>
+              <div className="text-[14px] font-semibold tracking-[-0.01em] text-text">
+                {c.title}
+              </div>
+            </button>
+          );
+        })}
+      </motion.div>
+
+      {/*
+        The detail panel is not in the scene. It is interface laid over it, so it
+        holds still while the camera moves, and it docks at the corner its card
+        came from so the connection stays obvious.
+      */}
       <AnimatePresence>
         {open !== null && (
           <motion.button
+            key="backdrop"
             type="button"
             aria-label="Close"
             className="absolute inset-0 z-10 cursor-default"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             onClick={close}
             style={{
               background:
                 openSx < 0
-                  ? "linear-gradient(90deg, rgba(6,9,15,0.8) 0%, rgba(6,9,15,0.36) 46%, rgba(6,9,15,0) 78%)"
-                  : "linear-gradient(270deg, rgba(6,9,15,0.8) 0%, rgba(6,9,15,0.36) 46%, rgba(6,9,15,0) 78%)",
+                  ? "linear-gradient(90deg, rgba(6,9,15,0.78) 0%, rgba(6,9,15,0.34) 46%, rgba(6,9,15,0) 78%)"
+                  : "linear-gradient(270deg, rgba(6,9,15,0.78) 0%, rgba(6,9,15,0.34) 46%, rgba(6,9,15,0) 78%)",
             }}
           />
         )}
-      </AnimatePresence>
 
-      {CAPABILITIES.map((c, i) => {
-        const isOpen = open === i;
-        const mode: CardMode = isOpen ? "open" : open !== null ? "chip" : "closed";
-        const chip = mode === "chip";
-        const p = placement(geo, i, mode);
-        return (
-          <motion.button
-            key={c.k}
-            type="button"
-            layout={!reduced}
-            transition={reduced ? { duration: 0 } : SPRING}
-            aria-expanded={isOpen}
-            className={`tilt-card absolute z-20 rounded-panel border text-left ${
-              chip ? "flex items-center justify-center p-0" : "p-4"
-            }`}
+        {open !== null && (
+          <motion.div
+            key="panel"
+            className="absolute z-20 rounded-panel border p-4"
             style={{
-              left: p.left,
-              top: p.top,
-              width: p.width,
-              minHeight: isOpen ? undefined : chip ? CHIP_H : CLOSED_H,
-              height: chip ? CHIP_H : undefined,
-              borderColor: isOpen ? "rgba(91,141,239,0.45)" : "rgba(148,163,184,0.14)",
-              // Chips sit over a magnified, bright earth, so they need a more
-              // opaque ground than a card floating on the page background does.
-              background: isOpen
-                ? "rgba(14,19,28,0.94)"
-                : chip
-                  ? "rgba(10,14,21,0.9)"
-                  : "rgba(16,21,30,0.82)",
+              ...panelBox(geo, open),
+              borderColor: "rgba(91,141,239,0.45)",
+              background: "rgba(14,19,28,0.94)",
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
-              boxShadow: isOpen
-                ? "0 26px 70px rgba(0,0,0,0.55), 0 0 30px rgba(91,141,239,0.22)"
-                : undefined,
-              pointerEvents: active ? "auto" : "none",
+              boxShadow: "0 26px 70px rgba(0,0,0,0.55), 0 0 30px rgba(91,141,239,0.22)",
             }}
-            animate={{ opacity: chip ? 0.6 : 1 }}
-            onMouseEnter={() => setLit(i)}
-            onMouseLeave={() => setLit((v) => (v === i ? null : v))}
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(isOpen ? null : i);
-            }}
+            initial={reduced ? false : { opacity: 0, y: 10, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98, transition: { duration: 0.16 } }}
+            // Held back a beat, so the camera is already moving when it arrives.
+            transition={{ duration: 0.34, delay: 0.14, ease: [0.23, 1, 0.32, 1] }}
           >
-            <motion.div
-              layout={!reduced}
-              transition={reduced ? { duration: 0 } : SPRING}
-              className={chip ? "num text-[11px] tracking-[0.12em] text-accent/80" : undefined}
-            >
-              {chip ? (
-                c.k
-              ) : (
-                <>
-              <div className="num mb-2 flex items-center justify-between text-[10.5px] tracking-[0.12em] text-accent/70">
-                <span>{c.k}</span>
-                <span
-                  aria-hidden
-                  className="text-[12px] leading-none text-muted/70"
-                  style={{ opacity: isOpen ? 1 : 0, transition: "opacity 180ms ease" }}
-                >
-                  &#10005;
-                </span>
-              </div>
-              <div className="text-[14px] font-semibold tracking-[-0.01em] text-text">
-                {c.title}
-              </div>
-
-              <AnimatePresence initial={false}>
-                {isOpen && (
-                  <motion.p
-                    key="body"
-                    className="mt-2.5 text-[13px] leading-[1.65] text-muted"
-                    initial={reduced ? false : { opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                    transition={{ duration: 0.28, delay: 0.08, ease: [0.23, 1, 0.32, 1] }}
-                  >
-                    {c.blurb}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-                </>
-              )}
-            </motion.div>
-          </motion.button>
-        );
-      })}
+            <div className="num mb-2 flex items-center justify-between text-[10.5px] tracking-[0.12em] text-accent/70">
+              <span>{CAPABILITIES[open].k}</span>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={close}
+                className="text-[12px] leading-none text-muted/70 hover:text-text"
+              >
+                &#10005;
+              </button>
+            </div>
+            <div className="text-[14px] font-semibold tracking-[-0.01em] text-text">
+              {CAPABILITIES[open].title}
+            </div>
+            <p className="mt-2.5 text-[13px] leading-[1.65] text-muted">
+              {CAPABILITIES[open].blurb}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -316,9 +315,6 @@ export function CapabilityGrid({
     <div className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
       {CAPABILITIES.map((c, i) => {
         const isOpen = open === i;
-        const body = (
-          <p className="mt-1.5 text-[12px] leading-[1.55] text-muted">{c.blurb}</p>
-        );
         const inner = (
           <>
             <div className="num mb-2 text-[10.5px] tracking-[0.12em] text-accent/70">{c.k}</div>
@@ -329,7 +325,9 @@ export function CapabilityGrid({
             >
               {c.title}
             </div>
-            {(!expandable || isOpen) && body}
+            {(!expandable || isOpen) && (
+              <p className="mt-1.5 text-[12px] leading-[1.55] text-muted">{c.blurb}</p>
+            )}
           </>
         );
         const style = {
@@ -361,18 +359,11 @@ export function CapabilityGrid({
 
 /**
  * One arrow per card: a radial line from the globe's rim to the middle of that
- * card's inner edge, with a head at the tip. Hovering a card brightens its own
- * arrow; opening one mutes the other five.
+ * card's inner edge, with a head at the tip. These live inside the scene layer,
+ * so the camera carries them as well and they stay welded to the rim as it
+ * grows, rather than being drawn from a rim that is no longer there.
  */
-function Arrows({
-  geo,
-  lit,
-  open,
-}: {
-  geo: Geometry;
-  lit: number | null;
-  open: number | null;
-}) {
+function Arrows({ geo, lit }: { geo: Geometry; lit: number | null }) {
   const cx = geo.w / 2;
   const cy = geo.h / 2;
   const start = geo.globeR + 14;
@@ -408,33 +399,26 @@ function Arrows({
       height={geo.h}
       viewBox={`0 0 ${geo.w} ${geo.h}`}
     >
-      {paths.map((p, i) => {
-        const on = lit === i;
-        return (
-          <g
-            key={i}
-            style={{
-              transition: "opacity 260ms cubic-bezier(0.23,1,0.32,1)",
-              // Every arrow starts at the globe's resting rim. Once the camera
-              // has dived in, that rim is deep inside the magnified sphere, so
-              // an arrow drawn there would begin in the middle of the earth.
-              // The zoom itself is the connection at that point.
-              opacity: open !== null ? 0 : on ? 1 : 0.42,
-            }}
-          >
-            <line
-              x1={p.x1}
-              y1={p.y1}
-              x2={p.x2}
-              y2={p.y2}
-              stroke="#5b8def"
-              strokeWidth={on ? 1.6 : 1}
-              strokeLinecap="round"
-            />
-            <polygon points={p.head} fill="#5b8def" />
-          </g>
-        );
-      })}
+      {paths.map((p, i) => (
+        <g
+          key={i}
+          style={{
+            transition: "opacity 220ms cubic-bezier(0.23,1,0.32,1)",
+            opacity: lit === i ? 1 : 0.42,
+          }}
+        >
+          <line
+            x1={p.x1}
+            y1={p.y1}
+            x2={p.x2}
+            y2={p.y2}
+            stroke="#5b8def"
+            strokeWidth={lit === i ? 1.6 : 1}
+            strokeLinecap="round"
+          />
+          <polygon points={p.head} fill="#5b8def" />
+        </g>
+      ))}
     </svg>
   );
 }

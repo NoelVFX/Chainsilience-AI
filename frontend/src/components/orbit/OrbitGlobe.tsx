@@ -7,22 +7,17 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { latLonToVector3 } from "../three/latlon";
-import { CHAPTERS, type OrbitArc, type OrbitFocus, type OrbitMarker } from "./chapters";
+import {
+  CHAPTERS,
+  FOCUS_ANCHOR,
+  type OrbitArc,
+  type OrbitFocus,
+  type OrbitMarker,
+} from "./chapters";
 
 const R = 1;
 const DEG = Math.PI / 180;
 
-/**
- * How far along the card's direction the point being zoomed into sits, as a
- * fraction of the globe's radius. This is the anchor: it holds still on screen
- * while everything expands around it, which is what makes the gesture read as
- * zooming into a photograph at a point rather than inflating a ball.
- *
- * Anchoring at the rim (1.0 or beyond) meant the whole sphere stayed in frame
- * and simply got bigger. Just inside the disc puts the region the card names
- * under the magnification instead.
- */
-const FOCUS_ANCHOR = 0.72;
 
 /** Shortest signed way round a circle, so a bearing never takes the long way. */
 const shortestTurn = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -221,6 +216,13 @@ interface Props {
   /** Set while a capability card is open: magnify the rim nearest that card. */
   focus?: OrbitFocus | null;
   /**
+   * The camera publishes its state here each frame. The capability cards sit in
+   * the same scene and are carried by the same transform, so they have to read
+   * the camera rather than run a second copy of it and drift.
+   */
+  camZoom?: MotionValue<number>;
+  camBearing?: MotionValue<number>;
+  /**
    * True when the canvas fills the whole stage rather than a globe-sized box.
    * The scene is then scaled down so the sphere still reads at the intended
    * diameter, which leaves empty canvas around it for a magnified globe to grow
@@ -234,6 +236,8 @@ export function OrbitGlobe({
   progress,
   chapter,
   focus = null,
+  camZoom,
+  camBearing,
   autoScale = false,
   reducedMotion = false,
 }: Props) {
@@ -358,6 +362,9 @@ export function OrbitGlobe({
       // Screen y runs down, three.js y runs up, hence the sign flip.
       fg.position.x = push * Math.cos(camTheta.current);
       fg.position.y = -push * Math.sin(camTheta.current);
+
+      camZoom?.set(z);
+      camBearing?.set(camTheta.current);
     }
   });
 

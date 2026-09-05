@@ -148,6 +148,24 @@ export interface OrbitFocus {
   zoom: number;
 }
 
+/**
+ * Where the camera's anchor sits when a card is opened, as a fraction of the
+ * globe's radius along the card's direction. Shared, because the cards ride the
+ * same camera as the earth and both have to scale about the same point.
+ */
+export const FOCUS_ANCHOR = 0.72;
+
+/**
+ * How much of the globe's box the sphere actually fills on screen, for the
+ * act's camera (fov 42, distance 3.6):
+ *
+ *   2 / (2 * tan(21deg) * 3.6) = 0.7236
+ *
+ * The box is min(32svh, 62vw); the sphere renders at this fraction of it. Needed
+ * outside the scene so the card layer can find the same anchor in CSS pixels.
+ */
+export const SPHERE_FILL = 0.7236;
+
 export interface Capability {
   k: string;
   title: string;

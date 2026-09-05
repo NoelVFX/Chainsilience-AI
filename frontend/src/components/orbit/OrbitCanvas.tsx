@@ -11,6 +11,8 @@ interface Props {
   progress: MotionValue<number>;
   chapter: number;
   focus?: OrbitFocus | null;
+  camZoom?: MotionValue<number>;
+  camBearing?: MotionValue<number>;
   autoScale?: boolean;
   reducedMotion?: boolean;
 }
@@ -54,6 +56,8 @@ export default function OrbitCanvas({
   progress,
   chapter,
   focus = null,
+  camZoom,
+  camBearing,
   autoScale = false,
   reducedMotion = false,
 }: Props) {
@@ -70,6 +74,8 @@ export default function OrbitCanvas({
         progress={progress}
         chapter={chapter}
         focus={focus}
+        camZoom={camZoom}
+        camBearing={camBearing}
         autoScale={autoScale}
         reducedMotion={reducedMotion}
       />
