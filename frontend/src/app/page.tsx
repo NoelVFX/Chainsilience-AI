@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { ClaimProof } from "@/components/ClaimProof";
@@ -10,6 +11,7 @@ import { Reveal } from "@/components/motion";
 import { SupplyChainAct } from "@/components/SupplyChainAct";
 import { OrbitAct } from "@/components/orbit/OrbitAct";
 import { ApiError, getToken } from "@/lib/api";
+import { LEGAL_DOCS } from "@/lib/legal";
 import { useBillingStatus, useCreateCheckout } from "@/lib/hooks";
 
 /**
@@ -545,8 +547,19 @@ function Footer({ onLaunch }: { onLaunch: () => void }) {
           </button>
         </div>
       </div>
-      <div className="pb-8 text-center text-[12px] text-muted/70">
-        © {new Date().getFullYear()} Chainsilience AI. All rights reserved.
+      {/* The legal row sits apart from the product nav: different job, and a
+          reader looking for it should not have to scan marketing links. */}
+      <div className="border-t border-line/60">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 py-6 text-[12px] text-muted/70 md:flex-row md:justify-between">
+          <p>© {new Date().getFullYear()} Chainsilience AI. All rights reserved.</p>
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            {LEGAL_DOCS.map((d) => (
+              <Link key={d.slug} href={d.slug} className="transition-colors hover:text-text">
+                {d.title}
+              </Link>
+            ))}
+          </nav>
+        </div>
       </div>
     </footer>
   );
