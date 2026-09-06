@@ -37,8 +37,8 @@ export interface OrbitChapter {
   /** A sweeping scan ring, used once, where the copy is about detection. */
   scan?: boolean;
   /**
-   * "radial" replaces the headline-above / body-below layout with six capability
-   * cards fanned around the globe, each joined to it by an arrow.
+   * "radial" replaces the headline-above / body-below layout with the six
+   * pipeline steps ringed around the globe, each arrowed to the one after it.
    */
   layout?: "split" | "radial";
 }
@@ -129,7 +129,7 @@ export const CHAPTERS: OrbitChapter[] = [
     // Closes the act. The globe has swept roughly 320 degrees westward by now,
     // so this lands back over the Pacific where the hero opened.
     rail: "Stack",
-    headline: "Six parts of one pipeline.",
+    headline: "The 6-step workflow",
     body: "",
     view: { lat: 12, lon: -170 },
     markers: [],
@@ -166,61 +166,105 @@ export const FOCUS_ANCHOR = 0.72;
  */
 export const SPHERE_FILL = 0.7236;
 
-export interface Capability {
+/** One thing the platform actually does at a given step, named plainly. */
+export interface StepFeature {
+  label: string;
+  detail: string;
+}
+
+export interface Step {
   k: string;
+  /** Card face. Short enough to hold one line at the card's width. */
   title: string;
+  /** Card face, under the title. One clause. */
   blurb: string;
-  /** Where the card sits, and where its arrow lands, on the 1440x860 stage. */
-  card: [number, number];
-  tip: [number, number];
+  /** Panel: what happens at this step, in prose. */
+  detail: string;
+  /** Panel: the features this step is built from. */
+  features: StepFeature[];
 }
 
 /**
- * The six capabilities, fanned around the globe. Coordinates are authored on a
- * fixed 1440x860 stage that is uniformly scaled to fit, so the cards and their
- * arrows stay in register at every viewport size.
+ * The pipeline, as a closed loop.
+ *
+ * These are steps rather than a feature list, so the order carries information:
+ * each one consumes what the previous one produced, and the sixth feeds the
+ * first. That is why they ring the globe with an arrow between them instead of
+ * fanning out of it — a cycle is the true shape of this system, and a radial
+ * burst was drawing a relationship that does not exist.
  */
-export const CAPABILITIES: Capability[] = [
+export const STEPS: Step[] = [
   {
     k: "01",
-    title: "Explainable risk scoring",
-    blurb: "Every score carries its factor breakdown, traceable back to the evidence.",
-    card: [343, 170],
-    tip: [502, 258],
+    title: "Ingest the signal",
+    blurb: "Read the world's news, continuously.",
+    detail:
+      "Around twenty public feeds — world and business desks alongside shipping and logistics trade press — are fetched concurrently and de-duplicated against everything already held.",
+    features: [
+      { label: "21 RSS sources", detail: "General, business, maritime and freight" },
+      { label: "30-second poll", detail: "A background loop, fetched concurrently" },
+      { label: "7-day window", detail: "Anything staler is dropped on ingest" },
+      { label: "Offline sample", detail: "Used when the network is unreachable" },
+    ],
   },
   {
     k: "02",
-    title: "Live digital twin",
-    blurb: "Suppliers, components, factories and routes as a graph you can traverse.",
-    card: [258, 430],
-    tip: [416, 430],
+    title: "Verify and filter",
+    blurb: "Two agents decide what is worth your attention.",
+    detail:
+      "A verifier drops signals it cannot stand up. A relevance agent keeps only what touches your paths and your geographies, then extracts the disruption into a structured event.",
+    features: [
+      { label: "Verifier agent", detail: "Scores confidence, discards the unreliable" },
+      { label: "Relevance agent", detail: "Matched against your own supply paths" },
+      { label: "Event extraction", detail: "Type, location, duration, severity" },
+    ],
   },
   {
     k: "03",
-    title: "Two-agent news intelligence",
-    blurb: "A verifier drops unreliable signals; a relevance agent keeps what touches you.",
-    card: [343, 690],
-    tip: [502, 602],
+    title: "Map to your chain",
+    blurb: "Land the event on your digital twin.",
+    detail:
+      "Suppliers, components, factories, ports and routes are nodes you traverse rather than rows you maintain. The event lands on the ones it actually reaches.",
+    features: [
+      { label: "8 node types", detail: "Supplier, factory, port, route, product…" },
+      { label: "Dependency paths", detail: "Cypher traversal over a Neo4j subgraph" },
+      { label: "Company-scoped", detail: "One graph per tenant, never shared" },
+    ],
   },
   {
     k: "04",
-    title: "Monte Carlo simulation",
-    blurb: "10,000 seeded scenarios per risk, for a real stoppage probability.",
-    card: [1097, 170],
-    tip: [938, 258],
+    title: "Score with reasons",
+    blurb: "Show the work behind every number.",
+    detail:
+      "Severity, exposure and coverage are broken out factor by factor, with reasoning that cites the article it came from — and a score that still resolves when the models are down.",
+    features: [
+      { label: "Factor breakdown", detail: "Each contribution scored 0–100" },
+      { label: "Three-tier scoring", detail: "Nemotron, then OpenAI, then deterministic" },
+      { label: "Revenue at risk", detail: "The score carried through to money" },
+    ],
   },
   {
     k: "05",
-    title: "Multi-objective mitigation",
-    blurb: "Ranked on service, cost, recovery time and net financial impact.",
-    card: [1182, 430],
-    tip: [1024, 430],
+    title: "Simulate the impact",
+    blurb: "Turn a score into an operational forecast.",
+    detail:
+      "Thousands of seeded scenarios per risk give a stoppage probability rather than an adjective, and trace the cascade from the trigger through to revenue.",
+    features: [
+      { label: "Monte Carlo", detail: "10,000 seeded runs for each risk" },
+      { label: "Stoppage probability", detail: "Days of cover before the line stops" },
+      { label: "Cascade chain", detail: "Trigger → component → product → revenue" },
+    ],
   },
   {
     k: "06",
-    title: "Action Center",
-    blurb: "Approve a mitigation and watch the linked risk's score and exposure move.",
-    card: [1097, 690],
-    tip: [938, 602],
+    title: "Act and close the loop",
+    blurb: "Reroute, notify, then feed the result back.",
+    detail:
+      "Mitigations are ranked on service, cost, recovery time and net financial impact. Approve one and the linked risk's score moves; your rating of it returns to the top of the pipeline.",
+    features: [
+      { label: "Multi-objective ranking", detail: "Four competing objectives, scored together" },
+      { label: "Drafted comms", detail: "Supplier, customer, executive, procurement" },
+      { label: "Feedback loop", detail: "Your 1–5 rating trains what surfaces next" },
+    ],
   },
 ];

@@ -13,7 +13,7 @@ import {
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 
-import { CapabilityConstellation, CapabilityGrid } from "./CapabilityConstellation";
+import { CapabilityConstellation, StepList } from "./CapabilityConstellation";
 import { CHAPTERS, type OrbitChapter, type OrbitFocus } from "./chapters";
 
 const OrbitCanvas = dynamic(() => import("./OrbitCanvas"), { ssr: false, loading: () => null });
@@ -99,7 +99,7 @@ export function OrbitAct({ onLaunch, onSchedule }: Props) {
             <ChapterHead chapter={c} index={i} />
             {c.layout === "radial" ? (
               <div className="mt-8">
-                <CapabilityGrid />
+                <StepList />
               </div>
             ) : (
               <div className="mt-5">
@@ -228,8 +228,8 @@ function Chapter({
   );
   const filter = useMotionTemplate`blur(${blurPx}px)`;
 
-  // The capabilities chapter fans six cards around the globe instead of stacking
-  // copy above and below it, so it gets its own layout.
+  // The workflow chapter rings six steps around the globe, each arrowed to the
+  // one after it, instead of stacking copy above and below it.
   if (chapter.layout === "radial") {
     return (
       <motion.div
