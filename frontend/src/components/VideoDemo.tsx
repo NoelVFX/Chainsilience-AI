@@ -46,13 +46,21 @@ export interface DemoConfig {
   poster: string | null;
   /** Shown on the facade, e.g. "4 min". Free text; omit if unknown. */
   runtime: string;
+  /**
+   * The frame's shape, as a CSS aspect-ratio. Match the recording or the video
+   * sits letterboxed inside bars of its own making — a screen capture is
+   * usually the display's ratio, not 16:9.
+   */
+  aspect: string;
   chapters: Chapter[];
 }
 
 export const DEMO: DemoConfig = {
   source: { kind: "file", src: "/demo/walkthrough.mp4" },
   poster: null,
-  runtime: "",
+  // 1440x900 capture: 16:10, not 16:9.
+  aspect: "1440 / 900",
+  runtime: "59s",
   chapters: [],
 };
 
@@ -71,6 +79,7 @@ function stamp(sec: number) {
  */
 export function VideoDemo({ config = DEMO }: { config?: DemoConfig }) {
   const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [seekTo, setSeekTo] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const reduced = useReducedMotion() ?? false;
@@ -122,9 +131,16 @@ export function VideoDemo({ config = DEMO }: { config?: DemoConfig }) {
           boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
         }}
       >
-        <div className="relative aspect-video w-full">
-          {playing ? (
-            <Player source={source} seekTo={seekTo} videoRef={videoRef} />
+        <div className="relative w-full" style={{ aspectRatio: config.aspect }}>
+          {failed ? (
+            <Unavailable />
+          ) : playing ? (
+            <Player
+              source={source}
+              seekTo={seekTo}
+              videoRef={videoRef}
+              onFail={() => setFailed(true)}
+            />
           ) : (
             <Facade
               poster={config.poster}
@@ -269,16 +285,37 @@ function PlaceholderArt() {
   );
 }
 
+/**
+ * Shown when the media will not load — most often because the file is not where
+ * `source` says it is. Quiet, on-brand, and honest about what happened, rather
+ * than a black box the visitor keeps clicking.
+ */
+function Unavailable() {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
+      <PlaceholderArt />
+      <p className="relative text-[13.5px] font-medium text-text">
+        The walkthrough could not be loaded.
+      </p>
+      <p className="relative max-w-[42ch] text-[12.5px] leading-[1.6] text-muted">
+        Please try again later, or book a live walkthrough instead.
+      </p>
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 
 function Player({
   source,
   seekTo,
   videoRef,
+  onFail,
 }: {
   source: DemoSource;
   seekTo: number;
   videoRef: React.RefObject<HTMLVideoElement>;
+  onFail: () => void;
 }) {
   if (source.kind === "file") {
     return (
@@ -291,6 +328,9 @@ function Player({
         autoPlay
         playsInline
         preload="metadata"
+        // A missing or undecodable file leaves the native player as a dead grey
+        // rectangle that says nothing. Say something instead.
+        onError={onFail}
       />
     );
   }

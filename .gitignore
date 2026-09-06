@@ -13,4 +13,7 @@
 chainsilience-ai-demo.mp4
 chainsilience-ai-demo-narration.mp3
 *.mp4
+# ...except the landing page's walkthrough, which is a shipped asset. The rule
+# above still keeps stray screen recordings out of the repo.
+!frontend/public/demo/walkthrough.mp4
 *.mp3
