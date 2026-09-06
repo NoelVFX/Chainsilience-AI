@@ -50,7 +50,7 @@ export interface DemoConfig {
 }
 
 export const DEMO: DemoConfig = {
-  source: null,
+  source: { kind: "file", src: "/demo/walkthrough.mp4" },
   poster: null,
   runtime: "",
   chapters: [],

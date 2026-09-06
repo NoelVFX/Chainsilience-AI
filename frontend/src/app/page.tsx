@@ -195,9 +195,6 @@ export default function LandingPage() {
       <main>
         <OrbitAct onLaunch={launch} onSchedule={openScheduler} />
         <Proof />
-        {/* The walkthrough sits after the pipeline and the numbers, and before
-            the price: see the thing working before being asked what it costs. */}
-        <VideoDemo />
         <Pricing
           onStartFree={startFree}
           onSubscribe={subscribe}
@@ -207,6 +204,10 @@ export default function LandingPage() {
           checkingPlan={hasSession && billing.isLoading}
         />
         <About />
+        {/* Directly after the supply-chain path that closes About: the page has
+            just walked the chain in the abstract, so this is where showing the
+            real thing lands. */}
+        <VideoDemo />
         <Contact />
       </main>
 
