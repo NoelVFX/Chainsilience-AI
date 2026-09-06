@@ -58,9 +58,9 @@ export interface DemoConfig {
 export const DEMO: DemoConfig = {
   source: { kind: "file", src: "/demo/walkthrough.mp4" },
   poster: null,
-  // 1440x900 capture: 16:10, not 16:9.
-  aspect: "1440 / 900",
-  runtime: "59s",
+  // 1920x1080 capture.
+  aspect: "16 / 9",
+  runtime: "3:28",
   chapters: [],
 };
 
