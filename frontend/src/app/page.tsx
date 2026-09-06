@@ -9,6 +9,7 @@ import { CountUp } from "@/components/CountUp";
 import { Logo } from "@/components/Logo";
 import { Reveal } from "@/components/motion";
 import { SupplyChainAct } from "@/components/SupplyChainAct";
+import { DEMO, VideoDemo } from "@/components/VideoDemo";
 import { OrbitAct } from "@/components/orbit/OrbitAct";
 import { ApiError, getToken } from "@/lib/api";
 import { LEGAL_DOCS } from "@/lib/legal";
@@ -73,6 +74,9 @@ function openScheduler() {
 const NAV = [
   { label: "Home", id: "home" },
   { label: "Capabilities", id: "features" },
+  // The demo link only exists when there is a demo. A nav item that scrolls to
+  // a section that renders nothing is worse than no nav item.
+  ...(DEMO.source ? [{ label: "Demo", id: "demo" }] : []),
   { label: "Pricing", id: "pricing" },
   { label: "About", id: "about" },
   { label: "Contact", id: "contact" },
@@ -191,6 +195,9 @@ export default function LandingPage() {
       <main>
         <OrbitAct onLaunch={launch} onSchedule={openScheduler} />
         <Proof />
+        {/* The walkthrough sits after the pipeline and the numbers, and before
+            the price: see the thing working before being asked what it costs. */}
+        <VideoDemo />
         <Pricing
           onStartFree={startFree}
           onSubscribe={subscribe}
